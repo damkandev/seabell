@@ -1,0 +1,275 @@
+/*
+ * Adapted from PDF.js viewer.css, Copyright 2012 Mozilla Foundation.
+ * Licensed under the Apache License, Version 2.0.
+ * https://www.apache.org/licenses/LICENSE-2.0
+ */
+
+.container {
+  --pdfViewer-padding-bottom: 24px;
+  --page-border: 0;
+  --page-margin: 0 auto 24px;
+}
+
+.viewer {
+  --scale-factor: 1;
+  --page-bg-color: rgb(255 255 255);
+  --hcm-highlight-filter: none;
+  --hcm-highlight-selected-filter: none;
+  width: 100%;
+  padding-bottom: var(--pdfViewer-padding-bottom);
+}
+
+.viewer :global(.page) {
+  --user-unit: 1;
+  --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+  direction: ltr;
+  width: 816px;
+  height: 1056px;
+  margin: var(--page-margin);
+  position: relative;
+  overflow: visible;
+  border: var(--page-border);
+  background-clip: content-box;
+  background-color: var(--page-bg-color);
+  box-shadow: 0 10px 18px rgb(0 0 0 / 12%);
+}
+
+.viewer :global(.dummyPage) {
+  position: relative;
+  width: 0;
+  height: var(--viewer-container-height);
+}
+
+.viewer:global(.noUserSelect) { user-select: none; }
+
+.viewer :global(.canvasWrapper) {
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.viewer :global(.canvasWrapper canvas) {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  contain: content;
+}
+
+.viewer :global(.canvasWrapper canvas.detailView) { image-rendering: pixelated; }
+
+.viewer :global(.canvasWrapper .selection) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: rgb(0 90 255 / 22%);
+}
+
+.viewer :global(.selectionLayer) {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.viewer :global(.selectionHighlight) {
+  position: absolute;
+  min-width: 1px;
+  background: rgb(134 239 172 / 58%);
+  border-radius: 1px;
+  forced-color-adjust: none;
+}
+
+.viewer :global(.pdfHighlightLayer) {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.viewer :global(.pdfHighlight) {
+  position: absolute;
+  min-width: 1px;
+  background: rgb(250 204 21 / 45%);
+  border-radius: 2px;
+  mix-blend-mode: multiply;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  pointer-events: auto;
+}
+
+.viewer :global(.pdfHighlight:hover) {
+  background: rgb(250 204 21 / 65%);
+}
+
+
+.viewer :global(.textLayer) {
+  color-scheme: only light;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: initial;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  pointer-events: auto;
+  user-select: none;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.viewer :global(.textLayer.highlighting) { touch-action: none; }
+
+.viewer :global(.textLayer :is(span, br)) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+  user-select: none;
+}
+
+.viewer :global(.textLayer > :not(.markedContent)),
+.viewer :global(.textLayer .markedContent span:not(.markedContent)) {
+  z-index: 1;
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.viewer :global(.textLayer .markedContent) { display: contents; }
+.viewer :global(.textLayer span[role="img"]) { cursor: default; user-select: none; }
+
+.viewer :global(.textLayer .highlight) {
+  margin: -1px;
+  padding: 1px;
+  border-radius: 4px;
+  background-color: rgb(180 0 170 / 25%);
+}
+
+.viewer :global(.textLayer .highlight.appended) { position: initial; }
+.viewer :global(.textLayer .highlight.begin) { border-radius: 4px 0 0 4px; }
+.viewer :global(.textLayer .highlight.end) { border-radius: 0 4px 4px 0; }
+.viewer :global(.textLayer .highlight.middle) { border-radius: 0; }
+.viewer :global(.textLayer .highlight.selected) { background-color: rgb(0 100 0 / 25%); scroll-margin-top: 50px; }
+
+.viewer :global(.textLayer ::selection),
+.viewer :global(.textLayer br::selection) {
+  color: transparent;
+  background: transparent;
+}
+
+.viewer :global(.textLayer .endOfContent) {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.viewer :global(.textLayer.selecting .endOfContent) { top: 0; }
+
+.viewer :global(.pdfLawLinks) {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.viewer :global(.pdfLawLink) {
+  position: absolute;
+  display: block;
+  cursor: pointer;
+  pointer-events: auto;
+  border: 0;
+  border-bottom: 2px solid rgb(37 99 235 / 85%);
+  background: rgb(59 130 246 / 10%);
+  padding: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.viewer :global(.pdfLawLink:hover) {
+  border-bottom-color: rgb(29 78 216);
+  background: rgb(59 130 246 / 22%);
+}
+
+.viewer :global(.pdfLawLink:focus-visible) {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: 1px;
+}
+
+.viewer :global(.annotationLayer) {
+  color-scheme: only light;
+  position: absolute;
+  inset: 0 auto auto 0;
+  pointer-events: none;
+  transform-origin: 0 0;
+  z-index: 3;
+}
+
+.viewer :global(.annotationLayer section) {
+  position: absolute;
+  box-sizing: border-box;
+  text-align: initial;
+  pointer-events: none;
+  transform-origin: 0 0;
+  user-select: none;
+}
+
+.viewer :global(.annotationLayer.disabled :is(section, .popup)) { pointer-events: none; }
+.viewer :global(.textLayer.selecting ~ .annotationLayer section) { pointer-events: none; }
+
+.viewer :global(.annotationLayer :is(.linkAnnotation, .buttonWidgetAnnotation.pushButton) > a) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.viewer :global(.annotationLayer :is(.linkAnnotation, .buttonWidgetAnnotation.pushButton):not(.hasBorder) > a:hover) {
+  opacity: 0.2;
+  background-color: rgb(255 255 0);
+}
+
+.viewer :global(.annotationLayer .linkAnnotation.hasBorder:hover) { background-color: rgb(255 255 0 / 20%); }
+.viewer :global(.annotationLayer .hasBorder) { background-size: 100% 100%; }
+
+.viewer :global(.annotationLayer .annotationContent) {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.viewer :global(.annotationLayer .textAnnotation img) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+@media (forced-colors: active) {
+  .viewer { --hcm-highlight-filter: invert(100%); }
+  .viewer :global(.annotationLayer .linkAnnotation) { outline: 1.5px solid LinkText; }
+}
