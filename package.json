@@ -15,7 +15,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @seabell/web --filter @seabell/api dev",
     "build": "pnpm --parallel --filter @seabell/web --filter @seabell/api build",
-    "start": "pnpm --parallel --filter @seabell/web --filter @seabell/api start",
+    "start": "pnpm --filter @seabell/web start",
     "db:generate": "pnpm --filter @seabell/api db:generate",
     "db:migrate": "pnpm --filter @seabell/api db:migrate",
     "lint": "pnpm --filter @seabell/web lint",
