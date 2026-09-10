@@ -42,7 +42,8 @@ pnpm install
 pnpm dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000).
+Abre [http://localhost:3000](http://localhost:3000). La API Hono queda disponible en
+[http://localhost:8787/health](http://localhost:8787/health).
 
 Comandos disponibles:
 
@@ -58,11 +59,15 @@ pnpm start      # servidor de producción
 ## Arquitectura
 
 - `apps/web/`: aplicación web Next.js, sus rutas API, componentes y pruebas.
-- `apps/api/`: espacio reservado para el backend independiente; se incorporará cuando exista el primer endpoint que no deba vivir en Next.js.
+- `apps/api/`: backend independiente en Hono para endpoints que necesiten un runtime o despliegue separado.
 - `scripts/legacy/`: utilitarios históricos de desarrollo, fuera del runtime.
 - `package.json` y `pnpm-workspace.yaml`: comandos y configuración del monorepo.
 
-Actualmente, las rutas API pequeñas siguen en `apps/web/src/app/api/`. No se añade un servidor backend vacío hasta definir su primer contrato.
+Las rutas API pequeñas existentes siguen en `apps/web/src/app/api/`; los nuevos endpoints independientes pueden vivir en `apps/api/src/`.
+
+La API usa Drizzle ORM para PostgreSQL. Define `DATABASE_URL` localmente o usa la variable que Railway genera al conectar su servicio PostgreSQL. Genera y aplica migraciones con `pnpm db:generate` y `pnpm db:migrate`.
+
+La autenticación inicial expone `POST /auth/register`, `POST /auth/login`, `POST /auth/logout` y `GET /auth/me`. Las sesiones usan una cookie HttpOnly y las contraseñas se derivan con `crypto.scrypt`.
 
 La interfaz usa Server Components cuando es posible; la lectura y edición de PDFs necesitan APIs del navegador y viven en componentes cliente.
 
