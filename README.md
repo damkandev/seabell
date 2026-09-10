@@ -20,6 +20,12 @@ Los PDFs permanecen en el navegador y no se suben a un servidor de Seabell. La a
 
 La consulta de una referencia legal sí usa servicios externos y envía el tipo y número de la norma. Las fuentes utilizadas son [LeyChile](https://www.bcn.cl/leychile/) y [leyes.pisanvs.cl](https://leyes.pisanvs.cl/). Exporta un archivo `.abn` si necesitas conservar o compartir un espacio de trabajo: borrar los datos del navegador puede eliminar los PDFs guardados localmente.
 
+## API privada y proyecto LeyChile
+
+Seabell utiliza una API privada proporcionada por el proyecto open source [ley-chile](https://github.com/pisanvs/ley-chile), disponible a través de [leyes.pisanvs.cl](https://leyes.pisanvs.cl/). El acceso privado está autorizado únicamente para KeroKero.cl, que participa como sponsor del proyecto; las credenciales y el acceso no forman parte de este repositorio.
+
+Para revisar la implementación, reportar problemas o consultar el acceso al servicio, revisa el repositorio de [ley-chile](https://github.com/pisanvs/ley-chile) o contacta a su propietario, [Max Morel](https://github.com/pisanvs).
+
 ## Requisitos
 
 - Node.js 20 o superior.
