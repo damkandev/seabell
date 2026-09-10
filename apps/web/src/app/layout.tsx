@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
   description: "Espacio de trabajo local-first para revisar y anotar documentos PDF.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es" className={cn("font-sans", geist.variable)}>
       <body>{children}</body>

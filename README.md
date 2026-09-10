@@ -53,10 +53,12 @@ pnpm start      # servidor de producción
 
 ## Arquitectura
 
-- `src/app/`: rutas de Next.js y el endpoint de consulta legal.
-- `src/components/`: interfaz React y componentes de lectura de PDF.
-- `src/lib/`: importación, almacenamiento, búsqueda, selección y formato `.abn`.
-- `tests/`: pruebas unitarias y end-to-end.
+- `apps/web/`: aplicación web Next.js, sus rutas API, componentes y pruebas.
+- `apps/api/`: espacio reservado para el backend independiente; se incorporará cuando exista el primer endpoint que no deba vivir en Next.js.
+- `scripts/legacy/`: utilitarios históricos de desarrollo, fuera del runtime.
+- `package.json` y `pnpm-workspace.yaml`: comandos y configuración del monorepo.
+
+Actualmente, las rutas API pequeñas siguen en `apps/web/src/app/api/`. No se añade un servidor backend vacío hasta definir su primer contrato.
 
 La interfaz usa Server Components cuando es posible; la lectura y edición de PDFs necesitan APIs del navegador y viven en componentes cliente.
 
