@@ -1,5 +1,9 @@
 # Seabell
 
+[![CI](https://github.com/damkandev/seabell/actions/workflows/ci.yml/badge.svg)](https://github.com/damkandev/seabell/actions/workflows/ci.yml)
+[![Licencia: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/licencia-PolyForm--Noncommercial--1.0.0-orange.svg)](LICENSE)
+[![GitHub Project](https://img.shields.io/badge/GitHub%20Project-Seabell-2671E5?logo=github)](https://github.com/users/damkandev/projects/1)
+
 Seabell es un espacio de trabajo local-first para revisar, buscar y anotar documentos PDF. Está pensado para trabajar con expedientes y mantener los documentos en el navegador, sin cuenta ni base de datos propia.
 
 > El proyecto está en desarrollo temprano (`0.1.0`). La estructura de los archivos `.abn` puede cambiar entre versiones.
