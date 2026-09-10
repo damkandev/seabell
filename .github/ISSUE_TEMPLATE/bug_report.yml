@@ -1,0 +1,29 @@
+name: Reporte de bug
+description: Reporta un problema reproducible en Seabell
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: No incluyas PDFs, datos personales, credenciales ni otra información sensible.
+  - type: textarea
+    id: description
+    attributes:
+      label: Qué ocurrió
+      description: Describe el resultado actual y el resultado esperado.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Pasos para reproducir
+      description: Incluye los pasos mínimos y un documento de ejemplo no sensible si es necesario.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Entorno
+      description: Navegador, sistema operativo y versión de Seabell.
+    validations:
+      required: true

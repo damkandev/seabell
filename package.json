@@ -1,7 +1,17 @@
 {
   "name": "seabell",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "description": "Espacio de trabajo local-first para revisar y anotar documentos PDF.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/damkandev/seabell.git"
+  },
+  "bugs": {
+    "url": "https://github.com/damkandev/seabell/issues"
+  },
+  "homepage": "https://github.com/damkandev/seabell#readme",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",

@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Seabell
 
-## Getting Started
+Seabell es un espacio de trabajo local-first para revisar, buscar y anotar documentos PDF. Está pensado para trabajar con expedientes y mantener los documentos en el navegador, sin cuenta ni base de datos propia.
 
-First, run the development server:
+> El proyecto está en desarrollo temprano (`0.1.0`). La estructura de los archivos `.abn` puede cambiar entre versiones.
+
+## Funcionalidades
+
+- Importación y lectura de PDFs locales.
+- Búsqueda de texto, selección, resaltados y notas.
+- Organización de documentos en expedientes y carpetas.
+- Persistencia local en `localStorage` e IndexedDB.
+- Exportación e importación de espacios de trabajo portables `.abn`.
+- Detección de referencias a leyes y decretos chilenos.
+- Consulta opcional de la norma citada desde fuentes externas.
+
+## Privacidad y datos
+
+Los PDFs permanecen en el navegador y no se suben a un servidor de Seabell. La aplicación no requiere autenticación, no incluye analítica y no mantiene una base de datos de usuarios.
+
+La consulta de una referencia legal sí usa servicios externos y envía el tipo y número de la norma. Las fuentes utilizadas son [LeyChile](https://www.bcn.cl/leychile/) y [leyes.pisanvs.cl](https://leyes.pisanvs.cl/). Exporta un archivo `.abn` si necesitas conservar o compartir un espacio de trabajo: borrar los datos del navegador puede eliminar los PDFs guardados localmente.
+
+## Requisitos
+
+- Node.js 20 o superior.
+- pnpm 10 (la versión está fijada en `package.json`).
+
+## Desarrollo local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Comandos disponibles:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm lint       # ESLint
+pnpm typecheck  # TypeScript sin emitir archivos
+pnpm test:unit  # pruebas unitarias
+pnpm test:e2e   # pruebas end-to-end en Chromium, Firefox y WebKit
+pnpm build      # build de producción
+pnpm start      # servidor de producción
+```
 
-## Learn More
+## Arquitectura
 
-To learn more about Next.js, take a look at the following resources:
+- `src/app/`: rutas de Next.js y el endpoint de consulta legal.
+- `src/components/`: interfaz React y componentes de lectura de PDF.
+- `src/lib/`: importación, almacenamiento, búsqueda, selección y formato `.abn`.
+- `tests/`: pruebas unitarias y end-to-end.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+La interfaz usa Server Components cuando es posible; la lectura y edición de PDFs necesitan APIs del navegador y viven en componentes cliente.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Contribuir
 
-## Deploy on Vercel
+Consulta [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir un pull request. Para reportar una vulnerabilidad, sigue [SECURITY.md](SECURITY.md) y no la publiques en un issue.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Aviso legal
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Seabell es una herramienta de organización y consulta documental. El contenido legal se obtiene de servicios externos y puede estar incompleto o desactualizado; no constituye asesoría jurídica.
+
+## Licencia de uso
+
+[PolyForm Noncommercial 1.0.0](LICENSE) © 2026 KeroKero.cl.
+
+El código fuente es público y gratuito para usos no comerciales. No es una licencia Open Source aprobada por la OSI, porque las licencias Open Source no pueden prohibir el uso comercial. KeroKero.cl, como titular del copyright, conserva sus derechos para usar Seabell en sus propios productos y servicios; un tercero que quiera utilizarlo comercialmente necesita una autorización separada de KeroKero.cl.
+
+### Evolución comercial
+
+KeroKero.cl se reserva el derecho de crear en cualquier momento un producto comercial separado a partir del código del que sea titular o para el que tenga derechos comerciales. Si eso ocurre, este repositorio público puede recibir mantenimiento menos frecuente o quedar congelado. Esta licencia no promete soporte ni una frecuencia mínima de mantenimiento.
+
+Las contribuciones de terceros solo podrán incorporarse a ese producto comercial si sus autores otorgan a KeroKero.cl los derechos comerciales correspondientes por separado.

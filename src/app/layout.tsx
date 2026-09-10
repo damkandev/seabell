@@ -7,12 +7,12 @@ const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
   title: "Seabell",
-  description: "",
+  description: "Espacio de trabajo local-first para revisar y anotar documentos PDF.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
+    <html lang="es" className={cn("font-sans", geist.variable)}>
       <body>{children}</body>
     </html>
   );
