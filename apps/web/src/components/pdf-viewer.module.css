@@ -98,7 +98,7 @@
 .viewer :global(.pdfHighlight) {
   position: absolute;
   min-width: 1px;
-  background: rgb(250 204 21 / 45%);
+  background: color-mix(in srgb, var(--highlight-color, #fde68a) 55%, transparent);
   border-radius: 2px;
   mix-blend-mode: multiply;
   cursor: pointer;
@@ -107,7 +107,7 @@
 }
 
 .viewer :global(.pdfHighlight:hover) {
-  background: rgb(250 204 21 / 65%);
+  background: color-mix(in srgb, var(--highlight-color, #fde68a) 75%, transparent);
 }
 
 

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 import { createSelectionPdf } from "./helpers/pdf-fixture";
 
@@ -165,10 +165,30 @@ test("lists persistent highlights in a side panel and removes them", async ({ pa
 });
 
 test("detects a cited law and opens it in the legal panel", async ({ page }) => {
+  await page.route("**/api/laws/ley/20000", (route) => route.fulfill({
+    json: {
+      kind: "law",
+      sourceUrl: "https://www.leychile.cl/Navegar?idNorma=235507",
+      law: {
+        titulo: "ESTABLECE NORMAS SOBRE COMPARECENCIA",
+        organismo: "MINISTERIO DE JUSTICIA",
+        fecha_publicacion: "1982-05-18",
+        articles: [
+          { label: "__preamble__", body: "La Junta de Gobierno de la República de Chile\nha dado su aprobación al siguiente:" },
+          { label: "articulo 1", body: "La primera presentación de cada parte o interesado.\n\n## Título I\n\n> **Nota.** Esta modificación ha sido incorporada al presente texto actualizado." },
+        ],
+      },
+    },
+  }));
   const lawLink = page.getByRole("button", { name: "Consultar Ley 20.000" });
   await expect(lawLink).toBeVisible();
   await lawLink.click();
   const panel = page.getByLabel("Leyes citadas en el documento");
   await expect(panel).toBeVisible();
-  await expect(panel).toContainText(/Cargando norma|Ley 20\.000|LEY NUM\. 20\.000/);
+  await expect(panel).toContainText("Artículo 1");
+  await expect(panel.locator("h5")).toHaveText("Título I");
+  await expect(panel.locator("strong")).toHaveText("Nota.");
+  await expect(panel).not.toContainText("## Título I");
+  await expect(panel).not.toContainText("> **");
+  await expect(panel).not.toContainText("__preamble__");
 });

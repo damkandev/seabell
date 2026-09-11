@@ -15,6 +15,7 @@ import type { ImportedPdf } from "@/lib/pdf-import";
 import type { LawReference } from "@/lib/law-references";
 import { PdfSearchIndex, type PdfSearchResult } from "@/lib/pdf-search";
 import type { PdfSelectionController } from "@/lib/pdf-selection/controller";
+import { DEFAULT_HIGHLIGHT_COLOR } from "@/lib/pdf-selection/types";
 import type {
   ActiveHighlightPopoverState,
   PdfHighlight,
@@ -50,38 +51,75 @@ type PageChangingEvent = { pageNumber: number };
 type ScaleChangingEvent = { scale: number };
 type TextLayerRenderedEvent = { pageNumber: number };
 
-export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
+export type PdfViewState = {
+  highlights: PdfHighlight[];
+  currentPage: number;
+  scale: number;
+  searchQuery: string;
+  panel: "search" | "highlights" | "laws" | "timeline" | null;
+};
+
+export function PdfViewer({ importedPdf, initialState, onStateChange, highlightColor }: {
+  importedPdf: ImportedPdf;
+  initialState?: Partial<PdfViewState>;
+  onStateChange?: (state: PdfViewState) => void;
+  highlightColor?: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerElementRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<ViewerSession | null>(null);
   const [pageCount, setPageCount] = useState<number | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [scale, setScale] = useState(DEFAULT_SCALE);
+  const [currentPage, setCurrentPage] = useState(initialState?.currentPage ?? 1);
+  const [scale, setScale] = useState(initialState?.scale ?? DEFAULT_SCALE);
   const [error, setError] = useState<string | null>(null);
   const [selectionStatus, setSelectionStatus] = useState<SelectionStatus>({ kind: "idle" });
   const [selectionPopover, setSelectionPopover] = useState<SelectionPopoverState>(null);
   const [highlightPopover, setHighlightPopover] = useState<ActiveHighlightPopoverState>(null);
-  const [highlights, setHighlights] = useState<PdfHighlight[]>([]);
-  const [highlightsOpen, setHighlightsOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [timelineOpen, setTimelineOpen] = useState(false);
-  const [lawsOpen, setLawsOpen] = useState(false);
+  const [highlights, setHighlights] = useState<PdfHighlight[]>(initialState?.highlights ?? []);
+  const [highlightsOpen, setHighlightsOpen] = useState(initialState?.panel === "highlights");
+  const [searchOpen, setSearchOpen] = useState(initialState?.panel === "search");
+  const [lawsOpen, setLawsOpen] = useState(initialState?.panel === "laws");
+  const [timelineOpenState, setTimelineOpenState] = useState(initialState?.panel === "timeline");
   const [lawReferences, setLawReferences] = useState<LawReference[]>([]);
   const [activeLawReference, setActiveLawReference] = useState<LawReference | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialState?.searchQuery ?? "");
   const [, setSearchRevision] = useState(0);
   const searchIndexRef = useRef<PdfSearchIndex | null>(null);
   const lawReferencesRef = useRef<LawReference[]>([]);
   // Background indexing schedules a render whenever more pages become searchable.
   const searchResults = searchIndexRef.current?.search(searchQuery) ?? [];
+  const initialStateRef = useRef(initialState);
+  const highlightColorRef = useRef(highlightColor ?? DEFAULT_HIGHLIGHT_COLOR);
+  highlightColorRef.current = highlightColor ?? DEFAULT_HIGHLIGHT_COLOR;
+  const onStateChangeRef = useRef(onStateChange);
+  onStateChangeRef.current = onStateChange;
+  const viewStateRef = useRef<PdfViewState>({
+    highlights,
+    currentPage,
+    scale,
+    searchQuery,
+    panel: searchOpen ? "search" : highlightsOpen ? "highlights" : lawsOpen ? "laws" : timelineOpenState ? "timeline" : null,
+  });
+  viewStateRef.current = {
+    highlights,
+    currentPage,
+    scale,
+    searchQuery,
+    panel: searchOpen ? "search" : highlightsOpen ? "highlights" : lawsOpen ? "laws" : timelineOpenState ? "timeline" : null,
+  };
+
+  const saveViewState = useCallback((next: Partial<PdfViewState>) => {
+    onStateChangeRef.current?.({ ...viewStateRef.current, ...next });
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
     const viewerElement = viewerElementRef.current;
     if (!container || !viewerElement) return;
 
-    setHighlights([]);
-    setHighlightsOpen(false);
+    setHighlights(initialStateRef.current?.highlights ?? []);
+    setHighlightsOpen(initialStateRef.current?.panel === "highlights");
+    setSearchOpen(initialStateRef.current?.panel === "search");
     setLawReferences([]);
     lawReferencesRef.current = [];
     setActiveLawReference(null);
@@ -182,13 +220,14 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
       const viewer = new viewerModule.PDFViewer(viewerOptions);
 
       const handlePagesInit = () => {
-        viewer.currentScale = DEFAULT_SCALE;
+        viewer.currentPageNumber = initialStateRef.current?.currentPage ?? 1;
+        viewer.currentScale = initialStateRef.current?.scale ?? DEFAULT_SCALE;
         setPageCount(viewer.pagesCount);
-        setCurrentPage(viewer.currentPageNumber);
+        setCurrentPage(initialStateRef.current?.currentPage ?? viewer.currentPageNumber);
         setScale(viewer.currentScale);
       };
-      const handlePageChanging = ({ pageNumber }: PageChangingEvent) => setCurrentPage(pageNumber);
-      const handleScaleChanging = ({ scale: nextScale }: ScaleChangingEvent) => setScale(nextScale);
+      const handlePageChanging = ({ pageNumber }: PageChangingEvent) => { setCurrentPage(pageNumber); saveViewState({ currentPage: pageNumber }); };
+      const handleScaleChanging = ({ scale: nextScale }: ScaleChangingEvent) => { setScale(nextScale); saveViewState({ scale: nextScale }); };
       decorateLawReferences = (pageNumber) => {
         const indexedPage = searchIndex.getPageText(pageNumber);
         const page = viewerElement.querySelector<HTMLElement>(`.page[data-page-number="${pageNumber}"]`);
@@ -240,10 +279,12 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
 
       const permissions = await pdfDocument.getPermissions();
       const storageKey = `seabell_highlights_${importedPdf.file.name}_${importedPdf.file.size}`;
-      let initialHighlights: PdfHighlight[] = [];
+      let initialHighlights: PdfHighlight[] = initialStateRef.current?.highlights ?? [];
       try {
-        const stored = localStorage.getItem(storageKey);
-        if (stored) initialHighlights = JSON.parse(stored) as PdfHighlight[];
+        if (!initialStateRef.current?.highlights) {
+          const stored = localStorage.getItem(storageKey);
+          if (stored) initialHighlights = JSON.parse(stored) as PdfHighlight[];
+        }
       } catch {
         // Ignore storage errors
       }
@@ -261,6 +302,7 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
         onSelectionChange: setSelectionPopover,
         onHighlightsChange: (nextHighlights) => {
           setHighlights(nextHighlights);
+          saveViewState({ highlights: nextHighlights });
           try {
             localStorage.setItem(storageKey, JSON.stringify(nextHighlights));
           } catch {
@@ -339,7 +381,7 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
       if (loadingTask) void loadingTask.destroy();
       viewerElement.replaceChildren();
     };
-  }, [importedPdf]);
+  }, [importedPdf, saveViewState]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -352,6 +394,7 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
       setLawsOpen(true);
       setSearchOpen(false);
       setHighlightsOpen(false);
+      setTimelineOpenState(false);
       return true;
     };
     const handleClick = (event: MouseEvent) => {
@@ -380,6 +423,14 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
       findPrevious: false,
     });
   }, [searchQuery]);
+
+  const setPanel = (panel: PdfViewState["panel"]) => {
+    setSearchOpen(panel === "search");
+    setHighlightsOpen(panel === "highlights");
+    setLawsOpen(panel === "laws");
+    setTimelineOpenState(panel === "timeline");
+    saveViewState({ panel });
+  };
 
   const goToPage = useCallback((requestedPage: number) => {
     const viewer = sessionRef.current?.viewer;
@@ -463,7 +514,7 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
     setHighlightPopover(null);
   }, []);
 
-  const sidePanelOpen = searchOpen || highlightsOpen || lawsOpen || timelineOpen;
+  const sidePanelOpen = searchOpen || highlightsOpen || lawsOpen || timelineOpenState;
 
   return (
     <section className="relative flex h-full flex-col bg-muted/30">
@@ -479,10 +530,10 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
           <span className="w-10 text-center text-xs tabular-nums">{Math.round(scale * 100)}%</span>
           <Button variant="ghost" size="icon" onClick={() => changeScale(SCALE_STEP)} disabled={!pageCount || scale >= MAX_SCALE} aria-label="Acercar"><ZoomIn /></Button>
           <span className="mx-1 h-5 w-px bg-border" />
-          <Button variant={searchOpen ? "secondary" : "ghost"} size="icon" onClick={() => { setSearchOpen((open) => !open); setHighlightsOpen(false); setLawsOpen(false); setTimelineOpen(false); }} aria-label="Buscar en el PDF" aria-pressed={searchOpen}><Search /></Button>
-          <Button variant={highlightsOpen ? "secondary" : "ghost"} size="icon" onClick={() => { setHighlightsOpen((open) => !open); setSearchOpen(false); setLawsOpen(false); setTimelineOpen(false); }} aria-label="Ver destacados" aria-pressed={highlightsOpen}><Highlighter /></Button>
-          <Button variant={lawsOpen ? "secondary" : "ghost"} size="icon" onClick={() => { setLawsOpen((open) => !open); setSearchOpen(false); setHighlightsOpen(false); setTimelineOpen(false); if (lawsOpen) setActiveLawReference(null); }} aria-label="Ver leyes citadas" aria-pressed={lawsOpen}><BookOpen /></Button>
-          <Button variant={timelineOpen ? "secondary" : "ghost"} size="icon" onClick={() => { setTimelineOpen((open) => !open); setSearchOpen(false); setHighlightsOpen(false); setLawsOpen(false); }} aria-label="Cronología del documento" aria-pressed={timelineOpen}><CalendarDays /></Button>
+          <Button variant={searchOpen ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(searchOpen ? null : "search")} aria-label="Buscar en el PDF" aria-pressed={searchOpen}><Search /></Button>
+          <Button variant={highlightsOpen ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(highlightsOpen ? null : "highlights")} aria-label="Ver destacados" aria-pressed={highlightsOpen}><Highlighter /></Button>
+          <Button variant={lawsOpen ? "secondary" : "ghost"} size="icon" onClick={() => { setPanel(lawsOpen ? null : "laws"); if (lawsOpen) setActiveLawReference(null); }} aria-label="Ver leyes citadas" aria-pressed={lawsOpen}><BookOpen /></Button>
+          <Button variant={timelineOpenState ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(timelineOpenState ? null : "timeline")} aria-label="Cronología del documento" aria-pressed={timelineOpenState}><CalendarDays /></Button>
         </div>
       </div>
       {error ? <p className="pointer-events-none absolute inset-x-0 top-8 z-10 text-center text-sm text-destructive" role="alert">{error}</p> : !pageCount && <p className="pointer-events-none absolute inset-x-0 top-8 z-10 text-center text-sm text-muted-foreground" role="status">Preparando PDF…</p>}
@@ -506,7 +557,7 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
             }}
             onHighlight={() => {
               const controller = sessionRef.current?.selectionController;
-              controller?.highlightSelection();
+              controller?.highlightSelection(highlightColorRef.current);
               setSelectionPopover(null);
             }}
           />
@@ -551,14 +602,14 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
         results={searchResults}
         indexedPages={searchIndexRef.current?.indexedPageCount ?? 0}
         pageCount={searchIndexRef.current?.pageCount ?? pageCount ?? 0}
-        onClose={() => setSearchOpen(false)}
-        onQueryChange={setSearchQuery}
+        onClose={() => setPanel(null)}
+        onQueryChange={(query) => { setSearchQuery(query); saveViewState({ searchQuery: query }); }}
         onResultClick={openResult}
       />
       <PdfHighlightsPanel
         open={highlightsOpen}
         highlights={highlights}
-        onClose={() => setHighlightsOpen(false)}
+        onClose={() => setPanel(null)}
         onHighlightClick={openHighlight}
         onRemove={removeHighlight}
       />
@@ -566,15 +617,15 @@ export function PdfViewer({ importedPdf }: { importedPdf: ImportedPdf }) {
         open={lawsOpen}
         references={lawReferences}
         activeReference={activeLawReference}
-        onClose={() => { setLawsOpen(false); setActiveLawReference(null); }}
+        onClose={() => { setPanel(null); setActiveLawReference(null); }}
         onReferenceClick={setActiveLawReference}
       />
       <PdfTimelinePanel
-        open={timelineOpen}
+        open={timelineOpenState}
         searchIndex={searchIndexRef.current}
         indexedPages={searchIndexRef.current?.indexedPageCount ?? 0}
         pageCount={searchIndexRef.current?.pageCount ?? pageCount ?? 0}
-        onClose={() => setTimelineOpen(false)}
+        onClose={() => setPanel(null)}
         onEntryClick={(entry) => {
           const session = sessionRef.current;
           const container = containerRef.current;

@@ -1,22 +1,25 @@
 "use client";
 
-import { Download, FileText, Plus, Upload, X } from "lucide-react";
+import { Download, FileText, LogOut, Plus, Settings, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { HomeScreen } from "@/components/home-screen";
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "@/components/ui/menubar";
-import { PdfViewer } from "@/components/pdf-viewer";
+import { PdfViewer, type PdfViewState } from "@/components/pdf-viewer";
 import { exportAbn, importAbn, type AbnSerializableValue } from "@/lib/abn";
 import { importLocalPdf, type ImportedPdf } from "@/lib/pdf-import";
 import { getWorkspace, saveWorkspace, WORKSPACE_STORAGE_VERSION } from "@/lib/workspace-storage";
 import { type ExpedienteColor, type ExpedienteState, type ExpedienteNode, createExpedienteState, EXPEDIENTE_COLORS, addPdfNode, movePdfNode, removePdfNode, renameNode } from "@/lib/expediente";
 import { NewExpedienteDialog } from "@/components/new-expediente-dialog";
 import { ExpedienteView } from "@/components/expediente-view";
+import { Button } from "@/components/ui/button";
 import { Folder } from "lucide-react";
 import { clsx } from "clsx";
 import { createLocalId } from "@/lib/utils";
+import type { AuthUser } from "@/lib/auth-api";
+import { DEFAULT_HIGHLIGHT_COLOR, isHighlightColor } from "@/lib/pdf-selection/types";
 
 type ImportStatus = "idle" | "validating" | "error" | "ready";
 type OpenPdf = ImportedPdf & { id: string };
@@ -28,10 +31,44 @@ type AppWorkspace = {
   tabs: Tab[];
   activeTabId: string | null;
 };
+type ArchiveWorkspace = AppWorkspace & {
+  expedientes: Record<string, ExpedienteState>;
+  pdfViewStates: Record<string, PdfViewState>;
+};
+type AutosaveContext = { kind: "workspace" } | { kind: "expediente"; id: string };
+type AutosaveFileHandle = {
+  createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
+};
+type WindowWithSavePicker = Window & {
+  showSaveFilePicker?: (options?: unknown) => Promise<AutosaveFileHandle>;
+};
 const STORAGE_KEY = "default";
+const HIGHLIGHT_COLOR_STORAGE_KEY = "seabell.highlight-color";
+const HIGHLIGHT_COLORS = [
+  { name: "Amarillo pastel", value: "#fde68a" },
+  { name: "Verde pastel", value: "#bbf7d0" },
+  { name: "Azul pastel", value: "#bae6fd" },
+  { name: "Rosa pastel", value: "#fbcfe8" },
+  { name: "Lila pastel", value: "#ddd6fe" },
+] as const;
 const empty = (): AppWorkspace => ({ tabs: [], activeTabId: null });
+function readHighlightColor(): string {
+  if (typeof window === "undefined") return DEFAULT_HIGHLIGHT_COLOR;
+  try {
+    const value = localStorage.getItem(HIGHLIGHT_COLOR_STORAGE_KEY);
+    return isHighlightColor(value) && HIGHLIGHT_COLORS.some((color) => color.value === value)
+      ? value
+      : DEFAULT_HIGHLIGHT_COLOR;
+  } catch {
+    return DEFAULT_HIGHLIGHT_COLOR;
+  }
+}
+function sameAutosaveContext(a: AutosaveContext, b: AutosaveContext): boolean {
+  return a.kind === "workspace" && b.kind === "workspace"
+    || a.kind === "expediente" && b.kind === "expediente" && a.id === b.id;
+}
 
-export function PdfImporter() {
+export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () => Promise<void> }) {
   const pdfInput = useRef<HTMLInputElement>(null);
   const fileInputMode = useRef<"pdf" | "archive">("pdf");
   const hydrated = useRef(false);
@@ -40,9 +77,20 @@ export function PdfImporter() {
   const [documents, setDocuments] = useState<OpenPdf[]>([]);
   const [workspace, setWorkspace] = useState<AppWorkspace>(empty());
   const [expedienteStates, setExpedienteStates] = useState<Map<string, ExpedienteState>>(new Map());
+  const [pdfViewStates, setPdfViewStates] = useState<Record<string, PdfViewState>>({});
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [autosaveStatus, setAutosaveStatus] = useState<"off" | "saving" | "saved" | "error">("off");
+  const [autosaveSavedAt, setAutosaveSavedAt] = useState<number | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [highlightColor, setHighlightColor] = useState(readHighlightColor);
   const dragThreshold = useRef<{x: number, y: number} | null>(null);
   const pendingDragTab = useRef<string | null>(null);
+  const autosaveRef = useRef<{ handle: AutosaveFileHandle; context: AutosaveContext } | null>(null);
+  const autosaveTimer = useRef<number | null>(null);
+  const autosaveWriting = useRef(false);
+  const autosaveQueued = useRef(false);
+  const writeAutosaveRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     void (async () => {
@@ -118,7 +166,99 @@ export function PdfImporter() {
       const expPdfs = documents.filter(d => docIds.has(d.id)).map(pdf => ({ id: pdf.id, file: pdf.file, name: pdf.name, lastModified: pdf.lastModified }));
       void saveWorkspace(expId, expState, expPdfs).catch(() => console.error("No se pudo guardar expediente", expId));
     }
-  }, [documents, workspace, expedienteStates]);
+    const autosave = autosaveRef.current;
+    if (autosave && sameAutosaveContext(autosave.context, contextForWorkspace(workspace))) {
+      if (autosaveTimer.current !== null) window.clearTimeout(autosaveTimer.current);
+      autosaveTimer.current = window.setTimeout(() => writeAutosaveRef.current(), 1000);
+    }
+  }, [documents, workspace, expedienteStates, pdfViewStates]);
+
+  function contextForWorkspace(currentWorkspace: AppWorkspace): AutosaveContext {
+    const current = currentWorkspace.tabs.find((tab) => tab.id === currentWorkspace.activeTabId);
+    return current?.kind === "expediente" ? { kind: "expediente", id: current.id } : { kind: "workspace" };
+  }
+
+  function archiveFor(context: AutosaveContext) {
+    if (context.kind === "expediente") {
+      const state = expedienteStates.get(context.id);
+      if (!state) throw new Error("Expediente no encontrado");
+      const ids = new Set(collectDocumentIds(state.tree));
+      return exportAbn({
+        state: { ...state, pdfViewStates: Object.fromEntries([...ids].filter((id) => pdfViewStates[id]).map((id) => [id, pdfViewStates[id]])) } as unknown as AbnSerializableValue,
+        pdfs: documents.filter((pdf) => ids.has(pdf.id)),
+        fileName: `${state.name}.abn`,
+      });
+    }
+    return exportAbn({
+      state: { ...workspace, expedientes: Object.fromEntries(expedienteStates), pdfViewStates } as unknown as AbnSerializableValue,
+      pdfs: documents,
+      fileName: "seabell.abn",
+    });
+  }
+
+  async function writeAutosave() {
+    const autosave = autosaveRef.current;
+    if (!autosave) return;
+    if (autosaveWriting.current) {
+      autosaveQueued.current = true;
+      return;
+    }
+    autosaveWriting.current = true;
+    setAutosaveStatus("saving");
+    try {
+      const archive = await archiveFor(autosave.context);
+      const writable = await autosave.handle.createWritable();
+      await writable.write(archive);
+      await writable.close();
+      setAutosaveSavedAt(Date.now());
+      setAutosaveStatus("saved");
+    } catch {
+      setAutosaveStatus("error");
+    } finally {
+      autosaveWriting.current = false;
+      if (autosaveQueued.current) {
+        autosaveQueued.current = false;
+        void writeAutosave();
+      }
+    }
+  }
+  writeAutosaveRef.current = () => void writeAutosave();
+
+  async function activateAutosave() {
+    const picker = window as WindowWithSavePicker;
+    if (!picker.showSaveFilePicker) {
+      setAutosaveStatus("error");
+      setError("Este navegador no permite autoguardar directamente en un archivo.");
+      return;
+    }
+    const context = contextForWorkspace(workspace);
+    const activeTab = workspace.tabs.find((tab) => tab.id === workspace.activeTabId);
+    try {
+      const handle = await picker.showSaveFilePicker({
+        suggestedName: context.kind === "expediente" ? `${activeTab?.name || "expediente"}.abn` : "seabell.abn",
+        types: [{ description: "Archivo Seabell", accept: { "application/x-abn+json": [".abn"] } }],
+      });
+      autosaveRef.current = { handle, context };
+      setError(null);
+      void writeAutosave();
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      setAutosaveStatus("error");
+      setError("No se pudo activar el autoguardado.");
+    }
+  }
+
+  function deactivateAutosave() {
+    if (autosaveTimer.current !== null) window.clearTimeout(autosaveTimer.current);
+    autosaveRef.current = null;
+    autosaveQueued.current = false;
+    setAutosaveStatus("off");
+    setAutosaveSavedAt(null);
+  }
+
+  function collectDocumentIds(tree: ExpedienteNode[]): string[] {
+    return tree.flatMap((node) => node.kind === "pdf" ? [node.documentId] : collectDocumentIds(node.children));
+  }
   
   function createExpediente(name: string) {
     const id = `exp-${createLocalId()}`;
@@ -179,11 +319,15 @@ export function PdfImporter() {
       if (archive.state && typeof archive.state.name === "string" && Array.isArray(archive.state.tree)) {
         // It's an expediente
         const expId = `exp-${createLocalId()}`;
+        const importedViewStates = validPdfViewStates((archive.state as { pdfViewStates?: unknown }).pdfViewStates);
+        const expedienteState = { ...(archive.state as unknown as ExpedienteState & { pdfViewStates?: unknown }) };
+        delete expedienteState.pdfViewStates;
         setExpedienteStates(prev => {
           const next = new Map(prev);
-          next.set(expId, archive.state as unknown as ExpedienteState);
+          next.set(expId, expedienteState);
           return next;
         });
+        setPdfViewStates((current) => ({ ...current, ...importedViewStates }));
         const expTab: ExpedienteTab = { kind: "expediente", id: expId, name: archive.state.name as string, color: (archive.state.color as ExpedienteColor) || "blue" };
         setWorkspace(current => ({ ...current, tabs: [...current.tabs, expTab], activeTabId: expId }));
         
@@ -194,7 +338,10 @@ export function PdfImporter() {
         });
       } else {
         // Normal workspace
-        setWorkspace(validWorkspace(archive.state));
+        const importedWorkspace = archive.state as Partial<ArchiveWorkspace>;
+        setWorkspace(validWorkspace(importedWorkspace));
+        setExpedienteStates(new Map(Object.entries(importedWorkspace.expedientes ?? {}).filter(([, value]) => isExpedienteState(value))));
+        setPdfViewStates(validPdfViewStates(importedWorkspace.pdfViewStates));
         setDocuments(archive.pdfs.map(({ id, file: pdf }) => ({
           id,
           file: pdf,
@@ -246,49 +393,7 @@ export function PdfImporter() {
 
   async function saveArchive() {
     try {
-      const activeTab = workspace.tabs.find(t => t.id === workspace.activeTabId);
-      const isExpediente = activeTab?.kind === "expediente";
-      
-      let stateToSave: unknown;
-      let pdfsToSave: { id: string; file: File; name: string; lastModified: number }[] = [];
-      let fileName = "seabell.abn";
-      
-      if (isExpediente && activeTab) {
-        const expState = expedienteStates.get(activeTab.id);
-        if (!expState) throw new Error("Expediente no encontrado");
-        stateToSave = expState;
-        
-        const collectIds = (tree: ExpedienteNode[]): string[] => {
-          const ids: string[] = [];
-          for (const n of tree) {
-            if (n.kind === "pdf") ids.push(n.documentId);
-            else if (n.kind === "folder") ids.push(...collectIds(n.children));
-          }
-          return ids;
-        };
-        const docIds = new Set(collectIds(expState.tree));
-        pdfsToSave = documents.filter(d => docIds.has(d.id)).map((pdf) => ({
-          id: pdf.id,
-          file: pdf.file,
-          name: pdf.name,
-          lastModified: pdf.lastModified,
-        }));
-        fileName = `${expState.name}.abn`;
-      } else {
-        stateToSave = workspace;
-        pdfsToSave = documents.map((pdf) => ({
-          id: pdf.id,
-          file: pdf.file,
-          name: pdf.name,
-          lastModified: pdf.lastModified,
-        }));
-      }
-
-      const archive = await exportAbn({
-        state: stateToSave as unknown as AbnSerializableValue,
-        pdfs: pdfsToSave,
-        fileName,
-      });
+      const archive = await archiveFor(contextForWorkspace(workspace));
       const url = URL.createObjectURL(archive);
       const link = document.createElement("a");
       link.href = url;
@@ -316,15 +421,39 @@ export function PdfImporter() {
   const active = workspace.tabs.find((tab) => tab.id === workspace.activeTabId);
   const activePdf = active?.kind === "pdf" ? documents.find((pdf) => pdf.id === active.documentId) : undefined;
 
-  return <div className={active ? "h-svh pt-[96px] overflow-hidden bg-background text-foreground" : "min-h-svh bg-background text-foreground"}>
-    <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b border-border/70 bg-background/95 px-4"><Menubar className="w-fit border-0 bg-transparent shadow-none"><MenubarMenu><MenubarTrigger>Archivo</MenubarTrigger><MenubarContent><MenubarItem onClick={openPdfs}>Abrir PDF</MenubarItem><MenubarItem onClick={openArchive}><Upload /> Abrir .abn</MenubarItem><MenubarItem onClick={() => setDialogOpen(true)}><Folder /> Crear expediente</MenubarItem><MenubarItem onClick={saveArchive}><Download /> {active?.kind === "expediente" ? "Guardar expediente como .abn" : "Guardar .abn"}</MenubarItem></MenubarContent></MenubarMenu></Menubar></header>
-    {workspace.tabs.length > 0 && <nav className="fixed inset-x-0 top-12 z-20 flex h-12 border-b bg-muted/40" aria-label="Documentos abiertos"><div className="flex min-w-0 flex-1 items-end overflow-x-auto px-2 pt-2" role="tablist">{workspace.tabs.map((tab) => (
+  const autosaveLabel = autosaveStatus === "saving" ? "Guardando…" : autosaveStatus === "error" ? "Autoguardado: error" : autosaveStatus === "saved" && autosaveSavedAt ? `Guardado a las ${new Date(autosaveSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Autoguardado activo";
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await onLogout();
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
+  function updateHighlightColor(nextColor: string) {
+    setHighlightColor(nextColor);
+    try {
+      localStorage.setItem(HIGHLIGHT_COLOR_STORAGE_KEY, nextColor);
+    } catch {
+      // Ignore storage errors; the setting still applies for this session.
+    }
+  }
+
+  function closeSettings() {
+    setSettingsOpen(false);
+  }
+
+  return <div className={active && !settingsOpen ? "h-svh pt-[96px] overflow-hidden bg-background text-foreground" : "min-h-svh bg-background text-foreground"}>
+    <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b border-border/70 bg-background/95 px-4"><Menubar className="w-fit border-0 bg-transparent shadow-none"><MenubarMenu><MenubarTrigger>Archivo</MenubarTrigger><MenubarContent><MenubarItem onClick={openPdfs}>Abrir PDF</MenubarItem><MenubarItem onClick={openArchive}><Upload /> Abrir .abn</MenubarItem><MenubarItem onClick={() => setDialogOpen(true)}><Folder /> Crear expediente</MenubarItem><MenubarItem onClick={saveArchive}><Download /> {active?.kind === "expediente" ? "Guardar expediente como .abn" : "Guardar .abn"}</MenubarItem><MenubarItem onClick={activateAutosave}>Activar autoguardado</MenubarItem>{autosaveRef.current && <><MenubarItem onClick={() => void writeAutosave()}>Guardar ahora</MenubarItem><MenubarItem onClick={deactivateAutosave}>Desactivar autoguardado</MenubarItem></>}</MenubarContent></MenubarMenu></Menubar>{autosaveRef.current && <span className="ml-4 text-xs text-muted-foreground" role="status">{autosaveLabel}</span>}<div className="ml-auto flex items-center gap-2 pl-3"><Button variant={settingsOpen ? "secondary" : "ghost"} size="sm" className="max-w-64" title={user.email} aria-label="Abrir configuración de cuenta" aria-pressed={settingsOpen} onClick={() => setSettingsOpen(true)}><Settings /><span className="max-w-48 truncate">{user.email}</span></Button><Button variant="ghost" size="sm" disabled={loggingOut} onClick={() => void handleLogout()}><LogOut /> Salir</Button></div></header>
+    {(workspace.tabs.length > 0 || settingsOpen) && <nav className="fixed inset-x-0 top-12 z-20 flex h-12 border-b bg-muted/40" aria-label="Documentos abiertos"><div className="flex min-w-0 flex-1 items-end overflow-x-auto px-2 pt-2" role="tablist">{workspace.tabs.map((tab) => (
   <div 
     key={tab.id} 
     role="tab" 
-    aria-selected={tab.id === workspace.activeTabId} 
-    tabIndex={tab.id === workspace.activeTabId ? 0 : -1} 
-    onClick={() => setWorkspace((current) => ({ ...current, activeTabId: tab.id }))}
+    aria-selected={!settingsOpen && tab.id === workspace.activeTabId} 
+    tabIndex={!settingsOpen && tab.id === workspace.activeTabId ? 0 : -1} 
+    onClick={() => { setSettingsOpen(false); setWorkspace((current) => ({ ...current, activeTabId: tab.id })); }}
     draggable={tab.kind === "pdf"}
     onDragStart={(e) => {
       if (tab.kind === "pdf") {
@@ -349,8 +478,8 @@ export function PdfImporter() {
     }}
     onMouseUp={() => { pendingDragTab.current = null; dragThreshold.current = null; }}
     className={clsx(
-      "flex h-9 min-w-44 max-w-64 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm",
-      tab.id === workspace.activeTabId ? "bg-background" : "border-transparent text-muted-foreground"
+      "flex h-9 min-w-44 max-w-64 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-px motion-reduce:transition-none",
+      !settingsOpen && tab.id === workspace.activeTabId ? "bg-background" : "border-transparent text-muted-foreground"
     )}
   >
     {tab.kind === "expediente" ? (
@@ -364,15 +493,50 @@ export function PdfImporter() {
     )}
     <span className="min-w-0 flex-1 truncate">{tab.name}</span>
     {tab.kind === "expediente" && <div className={clsx("size-2 rounded-full shrink-0", EXPEDIENTE_COLORS[(tab as ExpedienteTab).color]?.dot)} />}
-    <button type="button" aria-label={`Cerrar ${tab.name}`} onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}><X className="size-3.5" /></button>
+    <button type="button" aria-label={`Cerrar ${tab.name}`} className="cursor-pointer rounded p-0.5 opacity-60 transition-[background-color,opacity,transform] duration-150 hover:scale-110 hover:bg-muted hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none" onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}><X className="size-3.5" /></button>
   </div>
-))}<DropdownMenu><DropdownMenuTrigger className="mb-1 ml-1 grid size-7 place-items-center"><Plus className="size-4" /></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onClick={openPdfs}><FileText /> Abrir PDF</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></nav>}
-    {active?.kind === "expediente" 
+))}{settingsOpen && <div role="tab" aria-selected={settingsOpen} tabIndex={settingsOpen ? 0 : -1} onClick={() => setSettingsOpen(true)} className={clsx("flex h-9 min-w-44 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-px motion-reduce:transition-none", settingsOpen ? "bg-background" : "border-transparent text-muted-foreground")}><Settings className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">Configuración</span><button type="button" aria-label="Cerrar Configuración" className="cursor-pointer rounded p-0.5 opacity-60 transition-[background-color,opacity,transform] duration-150 hover:scale-110 hover:bg-muted hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeSettings(); }}><X className="size-3.5" /></button></div>}<DropdownMenu><DropdownMenuTrigger className="mb-1 ml-1 grid size-7 place-items-center"><Plus className="size-4" /></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onClick={openPdfs}><FileText /> Abrir PDF</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></nav>}
+    {settingsOpen
+      ? <main className="mx-auto w-full max-w-2xl px-6 pb-16 pt-28">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Configuración</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Personaliza tu espacio de trabajo.</p>
+          </div>
+          <section className="mt-8 rounded-xl border bg-card p-6">
+            <div className="flex items-center justify-between gap-6">
+              <div>
+                <h2 className="font-medium">Color del destacado</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Se aplicará a los nuevos textos destacados.</p>
+              </div>
+              <div className="flex shrink-0 gap-2" role="radiogroup" aria-label="Colores del destacado">
+                {HIGHLIGHT_COLORS.map((color) => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    role="radio"
+                    aria-label={color.name}
+                    aria-checked={highlightColor === color.value}
+                    title={color.name}
+                    onClick={() => updateHighlightColor(color.value)}
+                    className={clsx(
+                      "size-8 rounded-full border-2 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      highlightColor === color.value ? "border-foreground ring-2 ring-ring/40" : "border-border",
+                    )}
+                    style={{ backgroundColor: color.value }}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        </main>
+      : active?.kind === "expediente" 
       ? <ExpedienteView
           key={active.id}
           tab={active}
           state={expedienteStates.get(active.id) || createExpedienteState(active.name, 0)}
           documents={documents}
+          pdfViewStates={pdfViewStates}
+          onPdfViewStateChange={(documentId, viewState) => setPdfViewStates((current) => ({ ...current, [documentId]: viewState }))}
           onStateChange={(newState) => {
             setExpedienteStates(prev => {
               const next = new Map(prev);
@@ -461,7 +625,13 @@ export function PdfImporter() {
           }}
         />
       : active?.kind === "pdf" && activePdf
-      ? <PdfViewer key={activePdf.id} importedPdf={activePdf} />
+      ? <PdfViewer
+          key={activePdf.id}
+          importedPdf={activePdf}
+          highlightColor={highlightColor}
+          initialState={pdfViewStates[activePdf.id]}
+          onStateChange={(viewState) => setPdfViewStates((current) => ({ ...current, [activePdf.id]: viewState }))}
+        />
       : <HomeScreen
           onOpenPdf={openPdfs}
           onOpenArchive={openArchive}
@@ -476,9 +646,11 @@ export function PdfImporter() {
       onClose={() => setDialogOpen(false)} 
       onConfirm={createExpediente} 
     />
-    <input ref={pdfInput} className="sr-only" type="file" accept="application/pdf,.pdf,.abn,application/x-abn+json" multiple onChange={(event) => { void (fileInputMode.current === "archive" ? selectArchive(event) : selectPdfs(event)); }} />
+    <input ref={pdfInput} className="sr-only" type="file" accept="application/pdf,.pdf,.abn,application/x-abn+json" multiple aria-label="Seleccionar PDF o archivo .abn" onChange={(event) => { void (fileInputMode.current === "archive" ? selectArchive(event) : selectPdfs(event)); }} />
   </div>;
 }
 
 function documentId(pdf: ImportedPdf) { return `document:${pdf.name}-${pdf.lastModified}-${pdf.size}`; }
 function validWorkspace(value: unknown): AppWorkspace { if (!value || typeof value !== "object") return empty(); const candidate = value as Partial<AppWorkspace>; if (!Array.isArray(candidate.tabs)) return empty(); return { tabs: candidate.tabs.filter((item): item is Tab => !!item && typeof item.id === "string" && ((item.kind === "pdf" && typeof item.documentId === "string") || (item.kind === "expediente" && typeof item.name === "string"))), activeTabId: typeof candidate.activeTabId === "string" ? candidate.activeTabId : null }; }
+function isExpedienteState(value: unknown): value is ExpedienteState { return !!value && typeof value === "object" && typeof (value as ExpedienteState).name === "string" && Array.isArray((value as ExpedienteState).tree); }
+function validPdfViewStates(value: unknown): Record<string, PdfViewState> { if (!value || typeof value !== "object") return {}; return Object.fromEntries(Object.entries(value).filter(([, state]) => !!state && typeof state === "object" && Array.isArray((state as PdfViewState).highlights) && typeof (state as PdfViewState).currentPage === "number" && typeof (state as PdfViewState).scale === "number" && typeof (state as PdfViewState).searchQuery === "string")); }

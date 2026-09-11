@@ -4,6 +4,87 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes auth-card-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes auth-field-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-copy-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-error-in {
+    0% { opacity: 0; transform: translateX(-4px); }
+    70% { transform: translateX(2px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes auth-orb-drift {
+    from { transform: translate3d(-8%, -4%, 0) scale(1); }
+    to { transform: translate3d(8%, 5%, 0) scale(1.08); }
+}
+
+@keyframes auth-spinner-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes workspace-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-card { animation: auth-card-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.workspace-enter { animation: workspace-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.auth-copy { animation: auth-copy-in 280ms ease-out both; }
+.auth-form > * { animation: auth-field-in 400ms ease-out both; }
+.auth-form > :nth-child(1) { animation-delay: 80ms; }
+.auth-form > :nth-child(2) { animation-delay: 140ms; }
+.auth-form > :nth-child(3) { animation-delay: 200ms; }
+.auth-form > :nth-child(4) { animation-delay: 260ms; }
+.auth-error { animation-name: auth-error-in !important; animation-delay: 0ms !important; }
+.auth-spinner {
+    width: 0.9rem;
+    height: 0.9rem;
+    margin-right: 0.4rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 9999px;
+    animation: auth-spinner-spin 700ms linear infinite;
+}
+
+.auth-shell { position: relative; isolation: isolate; overflow: hidden; }
+.auth-shell::before,
+.auth-shell::after {
+    position: absolute;
+    width: 18rem;
+    height: 18rem;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--primary) 12%, transparent);
+    filter: blur(60px);
+    pointer-events: none;
+    content: "";
+    z-index: -1;
+    animation: auth-orb-drift 14s ease-in-out infinite alternate;
+}
+.auth-shell::before { top: -8rem; left: -7rem; }
+.auth-shell::after { right: -7rem; bottom: -9rem; animation-delay: -7s; }
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-card,
+    .workspace-enter,
+    .auth-copy,
+    .auth-form > *,
+    .auth-spinner,
+    .auth-shell::before,
+    .auth-shell::after { animation: none; }
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: var(--font-sans);

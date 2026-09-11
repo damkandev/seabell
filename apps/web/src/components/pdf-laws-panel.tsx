@@ -22,8 +22,26 @@ type LawResponse = {
   kind: "law" | "official" | "search";
   sourceUrl: string;
   candidates?: Array<{ id: string; title: string; label: string; sourceUrl: string }>;
-  law?: { titulo: string; organismo: string; fecha_publicacion: string; text: string };
+  law?: { titulo: string; organismo: string; fecha_publicacion: string; articles: Array<{ label: string; body: string }> };
 };
+
+function articleHeading(label: string): string | null {
+  if (label === "__preamble__") return null;
+  return label.replace(/^art[ií]culo\b/iu, "Artículo");
+}
+
+function legalInlineText(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/gu).map((part, index) => part.startsWith("**") && part.endsWith("**") ? <strong key={index} className="text-foreground">{part.slice(2, -2)}</strong> : part);
+}
+
+function legalParagraph(text: string, key: number) {
+  const quote = /^>\s?/u.test(text);
+  const content = text.replace(/^>\s?/u, "");
+  const heading = /^(#{1,6})\s+(.+)$/u.exec(content.trim());
+  if (heading) return <h5 key={key} className="pt-2 text-sm font-semibold text-foreground">{legalInlineText(heading[2])}</h5>;
+
+  return <p key={key} className={`whitespace-pre-wrap ${quote ? "border-l-2 border-border pl-3 text-muted-foreground" : ""}`}>{legalInlineText(content)}</p>;
+}
 
 export function PdfLawsPanel({ open, references, activeReference, onClose, onReferenceClick }: Props) {
   const [result, setResult] = useState<{ id: string; response?: LawResponse; error?: string } | null>(null);
@@ -74,7 +92,7 @@ export function PdfLawsPanel({ open, references, activeReference, onClose, onRef
             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
             {response?.kind === "official" && <section className="rounded-lg border bg-card p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fuente oficial</p><h3 className="mt-2 text-base font-semibold">{activeReference.label}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">La BCN confirmó esta norma. Su servicio público no permite a Seabell descargar el texto íntegro sin credencial, pero puedes abrir la ficha vigente oficial.</p><a href={response.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Abrir ficha oficial BCN <ExternalLink className="size-4" aria-hidden="true" /></a></section>}
             {response?.kind === "search" && <div className="space-y-3"><p className="text-sm text-muted-foreground">Selecciona la norma que corresponde a esta cita.</p>{response.candidates?.length ? <ul className="space-y-2">{response.candidates.map((candidate) => <li key={candidate.id}><button type="button" onClick={() => setCandidateId(candidate.id)} className="w-full rounded-lg border p-3 text-left text-sm hover:bg-muted"><span className="block text-xs text-muted-foreground">{candidate.label}</span><span className="mt-1 block font-medium">{candidate.title}</span></button></li>)}</ul> : <p className="text-sm text-muted-foreground">No encontramos una coincidencia exacta en el corpus disponible.</p>}</div>}
-            {response?.law && <article className="space-y-4"><header><h3 className="text-sm font-semibold leading-5">{response.law.titulo}</h3><p className="mt-1 text-xs text-muted-foreground">{response.law.organismo} · Publicada el {response.law.fecha_publicacion}</p></header><pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-foreground">{response.law.text}</pre></article>}
+            {response?.law && <article className="space-y-5"><header><h3 className="text-sm font-semibold leading-5">{response.law.titulo}</h3><p className="mt-1 text-xs text-muted-foreground">{response.law.organismo} · Publicada el {response.law.fecha_publicacion}</p></header><div className="space-y-5 text-sm leading-6 text-foreground">{response.law.articles.map((article, index) => <section key={`${article.label}-${index}`} className="space-y-2">{articleHeading(article.label) && <h4 className="text-sm font-semibold text-foreground">{articleHeading(article.label)}</h4>}{article.body.split(/\n{2,}/u).filter(Boolean).map((paragraph, paragraphIndex) => legalParagraph(paragraph.trim(), paragraphIndex))}</section>)}</div></article>}
           </div>
           <p className="border-t px-3 py-2 text-xs text-muted-foreground">Texto provisto por LeyChile. Para efectos legales, consulta la fuente oficial BCN.</p>
         </div>

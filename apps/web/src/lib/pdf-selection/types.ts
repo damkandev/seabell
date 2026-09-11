@@ -54,6 +54,12 @@ export type SelectionStatus =
   | { kind: "indexing"; message: string }
   | { kind: "error"; message: string };
 
+export const DEFAULT_HIGHLIGHT_COLOR = "#fde68a";
+
+export function isHighlightColor(value: unknown): value is string {
+  return typeof value === "string" && /^#[\da-f]{6}$/i.test(value);
+}
+
 export type PdfHighlight = {
   id: string;
   range: SelectionRange;
@@ -79,4 +85,3 @@ export type ActiveHighlightPopoverState = {
     y: number;
   };
 } | null;
-

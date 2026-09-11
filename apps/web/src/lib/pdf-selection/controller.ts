@@ -7,6 +7,7 @@ import {
   createPageTextModel,
   selectedText,
 } from "./layout";
+import { DEFAULT_HIGHLIGHT_COLOR, isHighlightColor } from "./types";
 import type {
   NormalizedRect,
   PageTextModel,
@@ -86,7 +87,7 @@ export class PdfSelectionController {
   readonly #onActiveHighlightClick?: (highlight: PdfHighlight | null, position?: { x: number; y: number }) => void;
   readonly #abortController = new AbortController();
   readonly #pageModels = new Map<number, PageTextModel>();
-  readonly #pagePromises = new Map<number, Promise<PageTextModel>>();
+  readonly #pagePromises = new Map<number, Promise<PageTextModel | null>>();
   #highlights: PdfHighlight[] = [];
   #selection: SelectionRange | null = null;
   #drag: DragState | null = null;
@@ -161,6 +162,7 @@ export class PdfSelectionController {
   readonly #handleTextLayerRendered = ({ pageNumber, error }: TextLayerRenderedEvent) => {
     if (error) return;
     void this.#ensurePage(pageNumber).then((model) => {
+      if (!model) return;
       this.#calibratePage(model);
       this.#renderPage(pageNumber);
       this.#renderPageHighlights(pageNumber);
@@ -212,7 +214,7 @@ export class PdfSelectionController {
     }
 
     void this.#ensurePage(pageNumber).then((model) => {
-      if (this.#abortController.signal.aborted) return;
+      if (this.#abortController.signal.aborted || !model) return;
       this.#calibratePage(model);
       const position = this.#positionAt(model, event.clientX, event.clientY);
       if (!position) {
@@ -270,7 +272,7 @@ export class PdfSelectionController {
     this.#stopAutoScroll();
     this.#onActiveHighlightClick?.(null);
     void this.#ensurePage(pageNumber).then((model) => {
-      if (this.#abortController.signal.aborted) return;
+      if (this.#abortController.signal.aborted || !model) return;
       this.#calibratePage(model);
       const position = this.#positionAt(model, event.clientX, event.clientY);
       if (position) this.#selectWord(position);
@@ -358,7 +360,7 @@ export class PdfSelectionController {
     this.#onStatus({ kind: "idle" });
   };
 
-  async #ensurePage(pageNumber: number): Promise<PageTextModel> {
+  async #ensurePage(pageNumber: number): Promise<PageTextModel | null> {
     const cached = this.#pageModels.get(pageNumber);
     if (cached) return cached;
     const pending = this.#pagePromises.get(pageNumber);
@@ -370,6 +372,12 @@ export class PdfSelectionController {
       .then((model) => {
         if (!this.#abortController.signal.aborted) this.#pageModels.set(pageNumber, model);
         return model;
+      })
+      .catch(() => {
+        if (!this.#abortController.signal.aborted) {
+          this.#onStatus({ kind: "error", message: "No se pudo preparar el texto del PDF." });
+        }
+        return null;
       })
       .finally(() => this.#pagePromises.delete(pageNumber));
     this.#pagePromises.set(pageNumber, promise);
@@ -431,6 +439,7 @@ export class PdfSelectionController {
     const pageNumber = this.#pageNumberAt(clientX, clientY);
     if (!drag || !pageNumber) return;
     void this.#ensurePage(pageNumber).then((model) => {
+      if (!model) return;
       if (!this.#drag || this.#drag.pointerId !== drag.pointerId) return;
       const focus = this.#positionAt(model, clientX, clientY);
       if (!focus) return;
@@ -650,6 +659,7 @@ export class PdfSelectionController {
           width: `${rect.width * 100}%`,
           height: `${rect.height * 100}%`,
         });
+        el.style.setProperty("--highlight-color", isHighlightColor(highlight.color) ? highlight.color : DEFAULT_HIGHLIGHT_COLOR);
         layer.append(el);
       }
     }

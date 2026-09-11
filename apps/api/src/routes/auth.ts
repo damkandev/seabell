@@ -111,7 +111,7 @@ auth.post("/logout", async (c) => {
 
 auth.get("/me", async (c) => {
   const user = await currentUser(c);
-  return user ? c.json({ user }) : c.json({ error: "Not authenticated" }, 401);
+  return user ? c.json({ user: publicUser(user) }) : c.json({ error: "Not authenticated" }, 401);
 });
 
 export default auth;

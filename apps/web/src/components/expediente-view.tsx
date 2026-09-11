@@ -2,7 +2,7 @@
 
 import { ExpedienteState, ExpedienteNode, findNode, addFolder, removePdfNode, renameNode } from "@/lib/expediente";
 import { FileTree, OpenPdf } from "./file-tree";
-import { PdfViewer } from "./pdf-viewer";
+import { PdfViewer, type PdfViewState } from "./pdf-viewer";
 
 import type { ExpedienteTab } from "./pdf-importer";
 
@@ -16,6 +16,8 @@ export type ExpedienteViewProps = {
   onMoveNode: (nodeId: string, folderId: string | null) => void;
   onRemoveNode: (nodeId: string) => void;
   onRenameNode: (nodeId: string, newName: string) => void;
+  pdfViewStates: Record<string, PdfViewState>;
+  onPdfViewStateChange: (documentId: string, state: PdfViewState) => void;
 };
 
 export function ExpedienteView({
@@ -28,6 +30,8 @@ export function ExpedienteView({
   onMoveNode,
   onRemoveNode,
   onRenameNode,
+  pdfViewStates,
+  onPdfViewStateChange,
 }: ExpedienteViewProps) {
   const activePdf = state.activeNodeId
     ? (findNode(state.tree, state.activeNodeId as string)?.kind === "pdf"
@@ -75,7 +79,12 @@ export function ExpedienteView({
       </div>
       <div className="flex-1 min-w-0 h-full relative">
         {activePdf ? (
-          <PdfViewer key={activePdf.id} importedPdf={activePdf} />
+          <PdfViewer
+            key={activePdf.id}
+            importedPdf={activePdf}
+            initialState={pdfViewStates[activePdf.id]}
+            onStateChange={(viewState) => onPdfViewStateChange(activePdf.id, viewState)}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">
             Seleccioná un PDF del árbol para comenzar.

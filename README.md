@@ -4,7 +4,7 @@
 [![Licencia: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/licencia-PolyForm--Noncommercial--1.0.0-orange.svg)](LICENSE)
 [![GitHub Project](https://img.shields.io/badge/GitHub%20Project-Seabell-2671E5?logo=github)](https://github.com/users/damkandev/projects/1)
 
-Seabell es un espacio de trabajo local-first para revisar, buscar y anotar documentos PDF. Está pensado para trabajar con expedientes y mantener los documentos en el navegador, sin cuenta ni base de datos propia.
+Seabell es un espacio de trabajo local-first para revisar, buscar y anotar documentos PDF. Está pensado para trabajar con expedientes y mantener los documentos en el navegador; el acceso requiere una cuenta, pero los documentos no se suben al servidor.
 
 > El proyecto está en desarrollo temprano (`0.1.0`). La estructura de los archivos `.abn` puede cambiar entre versiones.
 
@@ -20,7 +20,7 @@ Seabell es un espacio de trabajo local-first para revisar, buscar y anotar docum
 
 ## Privacidad y datos
 
-Los PDFs permanecen en el navegador y no se suben a un servidor de Seabell. La aplicación no requiere autenticación, no incluye analítica y no mantiene una base de datos de usuarios.
+Los PDFs permanecen en el navegador y no se suben a un servidor de Seabell. La autenticación usa una cuenta con email, contraseña derivada y sesión mediante cookie HttpOnly; no incluye analítica. La cuenta no sincroniza el contenido local del workspace.
 
 La consulta de una referencia legal sí usa servicios externos y envía el tipo y número de la norma. Las fuentes utilizadas son [LeyChile](https://www.bcn.cl/leychile/) y [leyes.pisanvs.cl](https://leyes.pisanvs.cl/). Exporta un archivo `.abn` si necesitas conservar o compartir un espacio de trabajo: borrar los datos del navegador puede eliminar los PDFs guardados localmente.
 
@@ -34,16 +34,27 @@ Para revisar la implementación, reportar problemas o consultar el acceso al ser
 
 - Node.js 20 o superior.
 - pnpm 10 (la versión está fijada en `package.json`).
+- Docker Desktop con Docker Compose.
 
 ## Desarrollo local
 
 ```bash
 pnpm install
-pnpm dev
+./start.sh
 ```
 
 Abre [http://localhost:3000](http://localhost:3000). La API Hono queda disponible en
 [http://localhost:8787/health](http://localhost:8787/health).
+
+`start.sh` levanta PostgreSQL en Docker, aplica las migraciones de Drizzle y arranca web + API. PostgreSQL usa el puerto local `5433` para evitar conflictos con otra instalación.
+
+Para detener los servicios:
+
+```bash
+docker compose down
+```
+
+Los datos quedan en el volumen `seabell-postgres-data`.
 
 Comandos disponibles:
 
