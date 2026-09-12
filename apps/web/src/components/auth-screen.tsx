@@ -41,7 +41,6 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: AuthUs
       <section className="auth-card relative z-10 w-full max-w-sm border border-[var(--sb-color-border-strong)] bg-background p-7 shadow-[7px_7px_0_var(--sb-color-shadow)]" aria-labelledby="auth-title">
         <div className="mb-7 text-center">
           <Image src="/logo.svg" alt="" width={56} height={56} unoptimized className="mx-auto mb-4 size-14" aria-hidden="true" />
-          <p className="sb-brand text-xs text-[var(--sb-color-logo)]">Seabell</p>
           <div key={mode} className="auth-copy">
             <h1 id="auth-title" className="sb-heading mt-2 text-3xl">
               {registering ? "Crea tu cuenta" : "Inicia sesión"}

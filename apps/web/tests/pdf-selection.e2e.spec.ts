@@ -176,19 +176,69 @@ test("detects a cited law and opens it in the legal panel", async ({ page }) => 
         articles: [
           { label: "__preamble__", body: "La Junta de Gobierno de la República de Chile\nha dado su aprobación al siguiente:" },
           { label: "articulo 1", body: "La primera presentación de cada parte o interesado.\n\n## Título I\n\n> **Nota.** Esta modificación ha sido incorporada al presente texto actualizado." },
+          { label: "articulo 2", body: "La comparecencia podrá efectuarse en la forma establecida por esta ley." },
+          { label: "articulo 1438", body: "El contrato es una convención por la cual una parte se obliga para con otra." },
+          { label: "articulo 1460", body: "Toda declaración de voluntad debe tener un objeto lícito." },
         ],
       },
     },
   }));
+  await page.route("**/api/laws/ley/30000", (route) => route.fulfill({
+    json: {
+      kind: "law",
+      sourceUrl: "https://www.leychile.cl/Navegar?idNorma=30000",
+      law: {
+        titulo: "OTRA NORMA DE PRUEBA",
+        organismo: "MINISTERIO DE JUSTICIA",
+        fecha_publicacion: "2020-01-01",
+        articles: [
+          { label: "articulo 1438", body: "El artículo 1438 de la norma anterior." },
+          { label: "articulo 1460", body: "El artículo 1460 de la norma anterior." },
+        ],
+      },
+    },
+  }));
+  await page.route("**/api/laws/cod/1855**", (route) => route.fulfill({
+    json: {
+      kind: "law",
+      sourceUrl: "https://www.leychile.cl/Navegar?idNorma=1973",
+      law: {
+        titulo: "CÓDIGO CIVIL",
+        organismo: "MINISTERIO DE JUSTICIA",
+        fecha_publicacion: "1855-12-14",
+        articles: [{ label: "articulo 1441", body: "El contrato es una convención." }],
+      },
+    },
+  }));
   const lawLink = page.getByRole("button", { name: "Consultar Ley 20.000" });
-  await expect(lawLink).toBeVisible();
-  await lawLink.click();
+  await expect(lawLink.first()).toBeVisible();
+  await lawLink.first().click();
   const panel = page.getByLabel("Leyes citadas en el documento");
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("Artículo 1");
+  const targetArticle = panel.locator('[data-law-article="2"]');
+  await expect(targetArticle).toHaveClass(/ring-2/);
+  await expect.poll(() => targetArticle.evaluate((element) => {
+    const panel = element.closest("[aria-label='Leyes citadas en el documento']");
+    if (!panel) return false;
+    const target = element.getBoundingClientRect();
+    const bounds = panel.getBoundingClientRect();
+    return target.top >= bounds.top && target.bottom <= bounds.bottom;
+  })).toBe(true);
   await expect(panel.locator("h5")).toHaveText("Título I");
   await expect(panel.locator("strong")).toHaveText("Nota.");
   await expect(panel).not.toContainText("## Título I");
   await expect(panel).not.toContainText("> **");
   await expect(panel).not.toContainText("__preamble__");
+
+  await panel.getByRole("button", { name: "Volver a las leyes citadas" }).click();
+  const codeLink = page.getByRole("button", { name: "Consultar Código Civil" });
+  await expect(codeLink).toBeVisible();
+  await codeLink.click();
+  await expect(page.getByLabel("Leyes citadas en el documento").locator('[data-law-article="1441"]')).toHaveClass(/ring-2/);
+  await page.getByLabel("Leyes citadas en el documento").getByRole("button", { name: "Volver a las leyes citadas" }).click();
+  const lawLinks = page.getByRole("button", { name: "Consultar Ley 30.000" });
+  await expect(lawLinks).toHaveCount(3);
+  await lawLinks.nth(1).click();
+  await expect(page.getByLabel("Leyes citadas en el documento").locator('[data-law-article="1438"]')).toHaveClass(/ring-2/);
 });

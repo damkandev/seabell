@@ -2,12 +2,17 @@ import { Hono } from "hono";
 
 const ORIGIN = "https://leyes.pisanvs.cl/api/v1";
 const WEB_ORIGIN = "https://leyes.pisanvs.cl";
-const TYPES = new Set(["ley", "dl", "dfl", "dto"]);
+const TYPES = new Set(["ley", "dl", "dfl", "dto", "cod", "res", "cir", "ord", "aa"]);
 const TYPE_LABEL: Record<string, string> = {
   ley: "Ley",
   dl: "Decreto Ley",
   dfl: "Decreto con Fuerza de Ley",
   dto: "Decreto",
+  cod: "Código",
+  res: "Resolución",
+  cir: "Circular",
+  ord: "Ordenanza",
+  aa: "Auto Acordado",
 };
 
 type NormaRef = {
@@ -68,7 +73,7 @@ async function lawResponse(id: string, fallbackSourceUrl: string) {
 
 laws.get("/:type/:number", async (c) => {
   const { type, number } = c.req.param();
-  if (!TYPES.has(type) || !/^\d+$/u.test(number)) return c.json({ error: "Referencia legal inválida." }, 400);
+  if (!TYPES.has(type) || !/^[\da-z-]+$/iu.test(number)) return c.json({ error: "Referencia legal inválida." }, 400);
   if (!process.env.API_KEY_LEYCHILE) return c.json({ error: "La API de LeyChile no está configurada." }, 503);
 
   try {

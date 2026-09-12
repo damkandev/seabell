@@ -14,7 +14,9 @@ export function createSelectionPdf(): Buffer {
     "0 -30 Td",
     "(segunda linea de prueba) Tj",
     "0 -30 Td",
-    "(Conforme a la Ley N 20.000.) Tj",
+    "(Conforme al art. 2 de la Ley N 20.000.) Tj",
+    "0 -30 Td",
+    "(El art. 1441 del Codigo Civil.) Tj",
     "ET",
   ].join("\n");
   const secondPage = [
@@ -22,6 +24,8 @@ export function createSelectionPdf(): Buffer {
     "/F1 18 Tf",
     "72 720 Td",
     "(Texto de la segunda pagina) Tj",
+    "0 -30 Td",
+    "(Ley N 30.000. En el art. 1438 y el articulo 1460.) Tj",
     "ET",
   ].join("\n");
   const objects: PdfObject[] = [

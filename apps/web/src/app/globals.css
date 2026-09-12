@@ -126,7 +126,6 @@
 
 .sb-heading { font-family: var(--font-heading); letter-spacing: -0.035em; }
 .sb-mono { font-family: var(--font-mono); }
-.sb-brand { font-family: var(--font-heading); letter-spacing: -0.04em; }
 .sb-label { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
 .sb-panel { border: 1px solid var(--sb-color-border); background: var(--sb-color-surface); box-shadow: 4px 4px 0 var(--sb-color-shadow); }
 .sb-pressable { transition: transform 150ms ease-out, background-color 150ms ease-out, box-shadow 150ms ease-out; }
