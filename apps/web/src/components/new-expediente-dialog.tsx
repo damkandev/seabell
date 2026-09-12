@@ -32,20 +32,20 @@ export function NewExpedienteDialog({ open, onClose, onConfirm }: NewExpedienteD
   return (
     <Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) { setName(""); onClose(); } }}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/50" />
-        <Dialog.Popup className="fixed left-[50%] top-[50%] z-50 w-full max-w-md translate-x-[-50%] translate-y-[-50%] rounded-lg bg-background p-6 shadow-lg border border-border">
-          <Dialog.Title className="text-lg font-semibold mb-4 text-foreground">
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-[rgb(18_27_17_/_45%)]" />
+        <Dialog.Popup className="sb-grid fixed left-[50%] top-[50%] z-50 w-full max-w-md translate-x-[-50%] translate-y-[-50%] border border-[var(--sb-color-border-strong)] bg-background p-7 shadow-[7px_7px_0_var(--sb-color-shadow)]">
+          <Dialog.Title className="sb-heading mb-4 text-2xl text-foreground">
             Crear nuevo expediente
           </Dialog.Title>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-foreground">
+            <label className="sb-label flex flex-col gap-2 text-foreground">
               Nombre del expediente
               <input
                 ref={inputRef}
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="h-11 rounded-[6px] border border-input bg-background px-3 py-2 font-sans text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 placeholder="Ej. Sucesión García"
               />
             </label>

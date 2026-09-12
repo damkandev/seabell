@@ -94,7 +94,7 @@ export function PdfTimelinePanel({
 
   return (
     <aside
-      className="absolute bottom-0 right-0 top-0 z-20 flex w-full max-w-sm flex-col border-l bg-background shadow-xl sm:w-96"
+      className="sb-context-panel absolute bottom-0 right-0 top-0 z-20 flex w-full max-w-sm flex-col border-l bg-background shadow-xl sm:w-96"
       aria-label="Cronología del documento"
     >
       {/* Header */}
@@ -124,7 +124,7 @@ export function PdfTimelinePanel({
       )}
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto bg-white p-3">
         {/* Empty / loading state */}
         {indexedPages === 0 && (
           <p className="px-1 pt-2 text-sm text-muted-foreground">

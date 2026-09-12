@@ -247,16 +247,23 @@ function FolderNode({
     }
   };
 
+  const handleDragStart = (e: DragEvent) => {
+    e.dataTransfer.setData("text/x-seabell-node-id", node.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
   return (
     <>
       <div className="flex flex-col">
         <div
           className={clsx(
-            "flex items-center gap-2 py-1 px-2 cursor-pointer hover:bg-muted/50 rounded-md text-sm",
+            "flex items-center gap-2 py-1 px-2 cursor-grab active:cursor-grabbing hover:bg-muted/50 rounded-md text-sm",
             isDragOver && "bg-muted/80 ring-1 ring-ring"
           )}
+          draggable={!isRenaming}
           style={{ paddingLeft: `${level * 12 + 8}px` }}
           onClick={() => !isRenaming && setIsOpen(!isOpen)}
+          onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -277,9 +284,16 @@ function FolderNode({
             <span className="truncate">{node.name}</span>
           )}
         </div>
-        {isOpen && (
-          <div className="flex flex-col">
-            {node.children.map((child) =>
+        <div
+          className={clsx(
+            "grid transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none",
+            isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          )}
+          aria-hidden={!isOpen}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex flex-col">
+              {node.children.map((child) =>
               child.kind === "folder" ? (
                 <FolderNode
                   key={child.id}
@@ -307,9 +321,10 @@ function FolderNode({
                   onRenameNode={onRenameNode}
                 />
               )
-            )}
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {menu && (
@@ -428,6 +443,7 @@ export function FileTree({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const { menu, setMenu, open: openMenu, menuRef } = useContextMenu();
 
   useEffect(() => {
     if (isCreatingFolder && folderInputRef.current) {
@@ -439,6 +455,11 @@ export function FileTree({
     if (newFolderName.trim()) onCreateFolder(null, newFolderName.trim());
     setIsCreatingFolder(false);
     setNewFolderName("");
+  };
+
+  const startCreateFolder = () => {
+    setMenu(null);
+    setIsCreatingFolder(true);
   };
 
   const handleFolderKeyDown = (e: React.KeyboardEvent) => {
@@ -488,7 +509,7 @@ export function FileTree({
   };
 
   return (
-    <div className="flex flex-col h-full bg-muted/10">
+    <div className="sb-file-tree flex flex-col h-full bg-muted/10">
       <div className="p-3 border-b border-border/50 flex items-center justify-between">
         <h2 className={clsx("font-semibold text-sm truncate flex items-center gap-2")}>
           <div className={clsx("size-2 rounded-full", EXPEDIENTE_COLORS[state.color].dot)} />
@@ -498,7 +519,7 @@ export function FileTree({
           <button
             title="Nueva carpeta"
             className="p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => setIsCreatingFolder(true)}
+            onClick={startCreateFolder}
           >
             <Folder className="size-4" />
           </button>
@@ -514,6 +535,7 @@ export function FileTree({
 
       <div
         className={clsx("flex-1 overflow-y-auto p-2", isDragOverRoot && "bg-muted/30")}
+        onContextMenu={openMenu}
         onDragOver={handleRootDragOver}
         onDragLeave={handleRootDragLeave}
         onDrop={handleRootDrop}
@@ -572,6 +594,16 @@ export function FileTree({
           )}
         </div>
       </div>
+
+      {menu && (
+        <ContextMenu pos={menu} menuRef={menuRef}>
+          <ContextMenuItem
+            label="Abrir PDF"
+            onClick={() => { setMenu(null); fileInputRef.current?.click(); }}
+          />
+          <ContextMenuItem label="Crear carpeta" onClick={startCreateFolder} />
+        </ContextMenu>
+      )}
 
       <input
         ref={fileInputRef}

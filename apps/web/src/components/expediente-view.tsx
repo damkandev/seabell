@@ -49,8 +49,8 @@ export function ExpedienteView({
     : null;
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
-      <div className="w-64 shrink-0 border-r border-border/70 flex flex-col h-full bg-background">
+    <div className="sb-workspace-view flex h-full w-full overflow-hidden">
+      <div className="w-64 shrink-0 border-r flex flex-col h-full bg-background">
         <FileTree
           expedienteId={tab.id}
           state={state}

@@ -22,4 +22,9 @@ until docker compose exec -T postgres pg_isready -U postgres -d seabell >/dev/nu
 done
 
 pnpm db:migrate
-exec pnpm dev
+
+pnpm --filter @seabell/api dev &
+api_pid=$!
+trap 'kill "$api_pid" 2>/dev/null || true' EXIT INT TERM
+
+pnpm --filter @seabell/web exec next dev -p 3002

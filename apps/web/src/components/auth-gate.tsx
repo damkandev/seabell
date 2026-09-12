@@ -42,12 +42,12 @@ export function AuthGate() {
   }, []);
 
   if (loading) {
-    return <main className="grid min-h-svh place-items-center text-sm text-muted-foreground">Verificando sesión…</main>;
+    return <main className="sb-paper grid min-h-svh place-items-center text-sm text-muted-foreground"><span className="sb-mono">Verificando sesión…</span></main>;
   }
 
   if (error) {
     return (
-      <main className="grid min-h-svh place-items-center px-6 text-center">
+      <main className="sb-paper grid min-h-svh place-items-center px-6 text-center">
         <div>
           <p className="text-sm text-destructive" role="alert">{error}</p>
           <Button className="mt-4" onClick={() => void loadSession()}>Reintentar</Button>

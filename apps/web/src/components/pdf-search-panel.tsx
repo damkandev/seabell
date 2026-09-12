@@ -24,13 +24,13 @@ export function PdfSearchPanel({ open, query, results, indexedPages, pageCount, 
   if (!open) return null;
 
   return (
-    <aside className="absolute bottom-0 right-0 top-0 z-20 flex w-full max-w-sm flex-col border-l bg-background shadow-xl sm:w-96" aria-label="Buscar en el documento">
+    <aside className="sb-context-panel absolute bottom-0 right-0 top-0 z-20 flex w-full max-w-sm flex-col border-l bg-background shadow-xl sm:w-96" aria-label="Buscar en el documento">
       <div className="flex items-center gap-2 border-b p-3">
         <Search className="size-4 text-muted-foreground" aria-hidden="true" />
-        <Input ref={inputRef} value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Buscar en este PDF" aria-label="Buscar en este PDF" />
+        <Input className="bg-white" ref={inputRef} value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Buscar en este PDF" aria-label="Buscar en este PDF" />
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar buscador"><X /></Button>
       </div>
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto bg-white p-3">
         {!query.trim() ? <p className="px-1 pt-2 text-sm text-muted-foreground">Escribe una palabra o frase para buscar en este documento.</p> : (
           <>
             <p className="mb-3 px-1 text-xs text-muted-foreground">

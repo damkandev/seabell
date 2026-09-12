@@ -1,6 +1,7 @@
 "use client";
 
 import { Upload } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -59,12 +60,13 @@ export function HomeScreen({ onOpenPdf, onOpenArchive, status, error, onOpenRece
   const isValidating = status === "validating";
 
   return (
-    <main className="flex min-h-svh flex-col pt-12">
+    <main className="sb-paper min-h-svh overflow-y-auto px-6 pb-16 pt-12 md:px-10">
       {/* Hero */}
-      <section className="flex flex-col items-center justify-center px-6 py-20 text-center">
-        <h1 className="mb-2 text-3xl font-semibold tracking-tight">Seabell</h1>
-        <p className="mb-8 max-w-sm text-sm text-muted-foreground">
-          Tu espacio de trabajo para revisar y anotar documentos PDF.
+      <section className="mx-auto flex max-w-3xl flex-col items-center justify-center py-16 text-center md:py-24">
+        <Image src="/logo.svg" alt="" width={72} height={72} unoptimized className="mb-7 size-16 md:size-[72px]" aria-hidden="true" />
+        <h1 className="sb-heading max-w-4xl text-5xl leading-[0.95] md:text-6xl">Revisa tus documentos con claridad.</h1>
+        <p className="mt-5 mb-9 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+          Un espacio local para leer, ordenar y anotar expedientes PDF sin sacar tus archivos de este navegador.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" onClick={onOpenPdf} disabled={isValidating}>
@@ -79,7 +81,7 @@ export function HomeScreen({ onOpenPdf, onOpenArchive, status, error, onOpenRece
           </Button>
         </div>
         {error && (
-          <p className="mt-4 text-sm text-destructive" role="alert">
+          <p className="mt-5 text-sm text-destructive" role="alert">
             {error}
           </p>
         )}
@@ -87,8 +89,8 @@ export function HomeScreen({ onOpenPdf, onOpenArchive, status, error, onOpenRece
 
       {/* Recientes */}
       {recentDocs.length > 0 && (
-        <section className="mx-auto w-full max-w-2xl px-6 pb-16">
-          <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <section className="mx-auto w-full max-w-3xl border-t border-[var(--sb-color-border-strong)] pt-7">
+          <h2 className="sb-label mb-4 text-[var(--sb-color-heading)]">
             Recientes
           </h2>
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2" role="list">

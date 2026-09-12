@@ -113,8 +113,14 @@ export function removePdfNode(tree: ExpedienteNode[], nodeId: string): { tree: E
   return { tree: next, removed };
 }
 
-/** Mueve un nodo PDF existente a una nueva carpeta destino (o a la raíz si folderId es null). */
-export function movePdfNode(tree: ExpedienteNode[], nodeId: string, targetFolderId: string | null): ExpedienteNode[] {
+/** Mueve un nodo existente a una nueva carpeta destino (o a la raíz si folderId es null). */
+export function moveNode(tree: ExpedienteNode[], nodeId: string, targetFolderId: string | null): ExpedienteNode[] {
+  const source = findNode(tree, nodeId);
+  if (!source || targetFolderId === nodeId || (source.kind === "folder" && targetFolderId && findNode(source.children, targetFolderId))) {
+    return tree;
+  }
+  if (targetFolderId && findNode(tree, targetFolderId)?.kind !== "folder") return tree;
+
   const { tree: treeWithout, removed } = removePdfNode(tree, nodeId);
   if (!removed) return tree;
   return addPdfNode(treeWithout, targetFolderId, removed);

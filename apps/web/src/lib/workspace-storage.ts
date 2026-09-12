@@ -8,7 +8,7 @@ export const WORKSPACE_STORAGE_VERSION = 1;
 
 const KEY_PREFIX = `seabell.workspace.v${WORKSPACE_STORAGE_VERSION}`;
 const DATABASE_NAME = "seabell-workspaces";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const BLOB_STORE = "documents";
 
 export type SerializableWorkspace = Record<string, unknown> | unknown[];
@@ -77,6 +77,7 @@ export class WorkspaceStorageError extends Error {
 type BlobRecord = { id: string; workspaceKey: string; blob: Blob };
 
 let databasePromise: Promise<IDBDatabase> | undefined;
+let saveQueue: Promise<unknown> = Promise.resolve();
 
 function storageKey(workspaceKey: string): string {
   if (!workspaceKey || workspaceKey.trim() !== workspaceKey) {
@@ -111,9 +112,17 @@ function getDatabase(): Promise<IDBDatabase> {
       if (!database.objectStoreNames.contains(BLOB_STORE)) {
         const store = database.createObjectStore(BLOB_STORE, { keyPath: "id" });
         store.createIndex("workspaceKey", "workspaceKey", { unique: false });
+      } else {
+        const transaction = request.transaction;
+        if (transaction && !transaction.objectStore(BLOB_STORE).indexNames.contains("workspaceKey")) {
+          transaction.objectStore(BLOB_STORE).createIndex("workspaceKey", "workspaceKey", { unique: false });
+        }
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => reject(new WorkspaceStorageError("storage-unavailable", "No se pudo abrir IndexedDB.", { cause: request.error ?? undefined }));
     request.onblocked = () => reject(new WorkspaceStorageError("storage-unavailable", "IndexedDB está bloqueado por otra pestaña."));
   });
@@ -196,7 +205,18 @@ export function documentMetadataToFile(metadata: WorkspaceDocumentMetadata, blob
 /** Alias descriptivo para consumidores que ya tienen metadata y Blob separados. */
 export const fileFromDocumentMetadata = documentMetadataToFile;
 
-export async function saveWorkspace<T extends SerializableWorkspace>(
+export function saveWorkspace<T extends SerializableWorkspace>(
+  workspaceKey: string,
+  workspace: T,
+  documents: readonly WorkspaceDocumentInput[] = [],
+): Promise<StoredWorkspace<T>> {
+  const task = saveQueue.catch(() => undefined).then(() => saveWorkspaceNow(workspaceKey, workspace, documents));
+  // ponytail: one browser-local save queue; split by workspace only if write throughput matters.
+  saveQueue = task;
+  return task;
+}
+
+async function saveWorkspaceNow<T extends SerializableWorkspace>(
   workspaceKey: string,
   workspace: T,
   documents: readonly WorkspaceDocumentInput[] = [],

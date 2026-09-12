@@ -36,12 +36,12 @@ export function RecentDocCard({ name, size, lastModified, onClick }: RecentDocCa
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="sb-pressable group flex w-full items-start gap-3 border border-[var(--sb-color-border)] bg-card p-4 text-left shadow-[4px_4px_0_var(--sb-color-shadow)] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <FileText className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
+      <FileText className="mt-0.5 size-5 shrink-0 text-[var(--sb-color-logo)]" aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium leading-snug">{name}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="sb-mono truncate text-sm font-semibold leading-snug text-[var(--sb-color-text-strong)]">{name}</p>
+        <p className="sb-mono mt-2 text-[0.6875rem] uppercase tracking-[0.08em] text-muted-foreground">
           {formatBytes(size)} · {formatRelativeDate(lastModified)}
         </p>
       </div>

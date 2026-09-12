@@ -69,7 +69,7 @@ export function PdfLawsPanel({ open, references, activeReference, onClose, onRef
   if (!open) return null;
 
   return (
-    <aside className="absolute bottom-0 right-0 top-0 z-20 flex w-full max-w-sm flex-col border-l bg-background shadow-xl sm:w-96" aria-label="Leyes citadas en el documento">
+    <aside className="sb-context-panel absolute bottom-0 right-0 top-0 z-20 flex w-full max-w-sm flex-col border-l bg-background shadow-xl sm:w-96" aria-label="Leyes citadas en el documento">
       <div className="flex items-center gap-2 border-b p-3">
         <BookOpen className="size-4 text-muted-foreground" aria-hidden="true" />
         <h2 className="min-w-0 flex-1 text-sm font-medium">Leyes citadas</h2>
@@ -78,7 +78,7 @@ export function PdfLawsPanel({ open, references, activeReference, onClose, onRef
 
       {activeReference ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b px-3 py-2">
+          <div className="flex items-center gap-2 border-b bg-white px-3 py-2">
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => onReferenceClick(null)} aria-label="Volver a las leyes citadas">
               <ArrowLeft className="size-3.5" aria-hidden="true" />
               <span className="sr-only">Volver a las leyes citadas</span>
@@ -87,7 +87,7 @@ export function PdfLawsPanel({ open, references, activeReference, onClose, onRef
               <ExternalLink className="size-4" aria-hidden="true" />
             </a>}
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-4">
             {loading && <p className="text-sm text-muted-foreground">Cargando norma…</p>}
             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
             {response?.kind === "official" && <section className="rounded-lg border bg-card p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fuente oficial</p><h3 className="mt-2 text-base font-semibold">{activeReference.label}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">La BCN confirmó esta norma. Su servicio público no permite a Seabell descargar el texto íntegro sin credencial, pero puedes abrir la ficha vigente oficial.</p><a href={response.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Abrir ficha oficial BCN <ExternalLink className="size-4" aria-hidden="true" /></a></section>}
@@ -97,7 +97,7 @@ export function PdfLawsPanel({ open, references, activeReference, onClose, onRef
           <p className="border-t px-3 py-2 text-xs text-muted-foreground">Texto provisto por LeyChile. Para efectos legales, consulta la fuente oficial BCN.</p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto bg-white p-3">
           {references.length === 0 ? <p className="px-1 pt-2 text-sm text-muted-foreground">Aún no se detectan citas legales. El documento se revisa página por página en segundo plano.</p> : (
             <ul className="space-y-2">
               {references.map((reference) => (

@@ -7,7 +7,7 @@ function Input({ className, ...props }: InputPrimitive.Props) {
     <InputPrimitive
       data-slot="input"
       className={cn(
-        "flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-11 w-full rounded-[6px] border border-input bg-background px-3 py-1 text-sm shadow-[inset_0_-2px_0_var(--sb-color-border)] outline-none transition-[color,box-shadow,background-color] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}

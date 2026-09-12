@@ -1,35 +1,38 @@
 "use client";
 
-import { Download, FileText, LogOut, Plus, Settings, Upload, X } from "lucide-react";
+import { Download, File, FilePenLine, FileText, Folder, Home, LogOut, Plus, Save, Settings, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { HomeScreen } from "@/components/home-screen";
-import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "@/components/ui/menubar";
+import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarTrigger } from "@/components/ui/menubar";
 import { PdfViewer, type PdfViewState } from "@/components/pdf-viewer";
 import { exportAbn, importAbn, type AbnSerializableValue } from "@/lib/abn";
 import { importLocalPdf, type ImportedPdf } from "@/lib/pdf-import";
 import { getWorkspace, saveWorkspace, WORKSPACE_STORAGE_VERSION } from "@/lib/workspace-storage";
-import { type ExpedienteColor, type ExpedienteState, type ExpedienteNode, createExpedienteState, EXPEDIENTE_COLORS, addPdfNode, movePdfNode, removePdfNode, renameNode } from "@/lib/expediente";
+import { type ExpedienteColor, type ExpedienteState, type ExpedienteNode, createExpedienteState, EXPEDIENTE_COLORS, addPdfNode, moveNode, removePdfNode, renameNode } from "@/lib/expediente";
 import { NewExpedienteDialog } from "@/components/new-expediente-dialog";
 import { ExpedienteView } from "@/components/expediente-view";
 import { Button } from "@/components/ui/button";
-import { Folder } from "lucide-react";
 import { clsx } from "clsx";
 import { createLocalId } from "@/lib/utils";
 import type { AuthUser } from "@/lib/auth-api";
 import { DEFAULT_HIGHLIGHT_COLOR, isHighlightColor } from "@/lib/pdf-selection/types";
+import { createWordDocument, isWordDocument, type WordDocument } from "@/lib/word-document";
+import { WordEditor } from "@/components/word-editor";
 
 type ImportStatus = "idle" | "validating" | "error" | "ready";
 type OpenPdf = ImportedPdf & { id: string };
 export type PdfTab = { kind: "pdf"; id: string; documentId: string; name: string; expedienteId?: string };
 export type ExpedienteTab = { kind: "expediente"; id: string; name: string; color: ExpedienteColor };
-export type Tab = PdfTab | ExpedienteTab;
+export type WordTab = { kind: "word"; id: string; documentId: string; name: string };
+export type Tab = PdfTab | ExpedienteTab | WordTab;
 /** State saved locally and embedded in portable .abn archives. */
 type AppWorkspace = {
   tabs: Tab[];
   activeTabId: string | null;
+  wordDocuments: Record<string, WordDocument>;
 };
 type ArchiveWorkspace = AppWorkspace & {
   expedientes: Record<string, ExpedienteState>;
@@ -51,7 +54,7 @@ const HIGHLIGHT_COLORS = [
   { name: "Rosa pastel", value: "#fbcfe8" },
   { name: "Lila pastel", value: "#ddd6fe" },
 ] as const;
-const empty = (): AppWorkspace => ({ tabs: [], activeTabId: null });
+const empty = (): AppWorkspace => ({ tabs: [], activeTabId: null, wordDocuments: {} });
 function readHighlightColor(): string {
   if (typeof window === "undefined") return DEFAULT_HIGHLIGHT_COLOR;
   try {
@@ -164,7 +167,10 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
       };
       const docIds = new Set(collectIds(expState.tree));
       const expPdfs = documents.filter(d => docIds.has(d.id)).map(pdf => ({ id: pdf.id, file: pdf.file, name: pdf.name, lastModified: pdf.lastModified }));
-      void saveWorkspace(expId, expState, expPdfs).catch(() => console.error("No se pudo guardar expediente", expId));
+      void saveWorkspace(expId, expState, expPdfs).catch((cause) => {
+        console.warn("No se pudo guardar expediente", expId, cause);
+        setError(cause instanceof Error ? cause.message : "No se pudo guardar el expediente.");
+      });
     }
     const autosave = autosaveRef.current;
     if (autosave && sameAutosaveContext(autosave.context, contextForWorkspace(workspace))) {
@@ -275,6 +281,15 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
       ...current,
       tabs: [...current.tabs, { kind: "expediente", id, name, color: newState.color }],
       activeTabId: id,
+    }));
+  }
+  function createDocument() {
+    const wordDocument = createWordDocument();
+    setWorkspace((current) => ({
+      ...current,
+      tabs: [...current.tabs, { kind: "word", id: wordDocument.id, documentId: wordDocument.id, name: wordDocument.title }],
+      activeTabId: wordDocument.id,
+      wordDocuments: { ...current.wordDocuments, [wordDocument.id]: wordDocument },
     }));
   }
   function openPdfs() {
@@ -420,6 +435,7 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
 
   const active = workspace.tabs.find((tab) => tab.id === workspace.activeTabId);
   const activePdf = active?.kind === "pdf" ? documents.find((pdf) => pdf.id === active.documentId) : undefined;
+  const activeWord = active?.kind === "word" ? workspace.wordDocuments[active.documentId] : undefined;
 
   const autosaveLabel = autosaveStatus === "saving" ? "Guardando…" : autosaveStatus === "error" ? "Autoguardado: error" : autosaveStatus === "saved" && autosaveSavedAt ? `Guardado a las ${new Date(autosaveSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Autoguardado activo";
 
@@ -445,9 +461,14 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
     setSettingsOpen(false);
   }
 
-  return <div className={active && !settingsOpen ? "h-svh pt-[96px] overflow-hidden bg-background text-foreground" : "min-h-svh bg-background text-foreground"}>
-    <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b border-border/70 bg-background/95 px-4"><Menubar className="w-fit border-0 bg-transparent shadow-none"><MenubarMenu><MenubarTrigger>Archivo</MenubarTrigger><MenubarContent><MenubarItem onClick={openPdfs}>Abrir PDF</MenubarItem><MenubarItem onClick={openArchive}><Upload /> Abrir .abn</MenubarItem><MenubarItem onClick={() => setDialogOpen(true)}><Folder /> Crear expediente</MenubarItem><MenubarItem onClick={saveArchive}><Download /> {active?.kind === "expediente" ? "Guardar expediente como .abn" : "Guardar .abn"}</MenubarItem><MenubarItem onClick={activateAutosave}>Activar autoguardado</MenubarItem>{autosaveRef.current && <><MenubarItem onClick={() => void writeAutosave()}>Guardar ahora</MenubarItem><MenubarItem onClick={deactivateAutosave}>Desactivar autoguardado</MenubarItem></>}</MenubarContent></MenubarMenu></Menubar>{autosaveRef.current && <span className="ml-4 text-xs text-muted-foreground" role="status">{autosaveLabel}</span>}<div className="ml-auto flex items-center gap-2 pl-3"><Button variant={settingsOpen ? "secondary" : "ghost"} size="sm" className="max-w-64" title={user.email} aria-label="Abrir configuración de cuenta" aria-pressed={settingsOpen} onClick={() => setSettingsOpen(true)}><Settings /><span className="max-w-48 truncate">{user.email}</span></Button><Button variant="ghost" size="sm" disabled={loggingOut} onClick={() => void handleLogout()}><LogOut /> Salir</Button></div></header>
-    {(workspace.tabs.length > 0 || settingsOpen) && <nav className="fixed inset-x-0 top-12 z-20 flex h-12 border-b bg-muted/40" aria-label="Documentos abiertos"><div className="flex min-w-0 flex-1 items-end overflow-x-auto px-2 pt-2" role="tablist">{workspace.tabs.map((tab) => (
+  function goHome() {
+    setSettingsOpen(false);
+    setWorkspace((current) => ({ ...current, activeTabId: null }));
+  }
+
+  return <div className={active && !settingsOpen ? "sb-workspace h-svh overflow-hidden bg-background pt-24 text-foreground" : "sb-workspace min-h-svh bg-background text-foreground"}>
+    <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b px-4 print:hidden"><button type="button" aria-label="Ir al inicio" onClick={goHome} className="mr-3 hidden size-6 shrink-0 items-center justify-center text-inherit outline-none focus-visible:outline-2 focus-visible:outline-[#F4FFF4] lg:flex"><span className="sb-workspace-logo" aria-hidden="true" /></button><Menubar className="w-fit border-0 bg-transparent text-inherit shadow-none"><MenubarMenu><MenubarTrigger className="gap-1.5 hover:bg-[#F4FFF4]/10 aria-expanded:bg-[#F4FFF4]/10"><File className="size-4" /> Archivo</MenubarTrigger><MenubarContent><MenubarItem onClick={createDocument}><FilePenLine /> Crear documento</MenubarItem><MenubarItem onClick={() => setDialogOpen(true)}><Folder /> Crear expediente</MenubarItem><MenubarItem onClick={openPdfs}><FileText /> Abrir PDF</MenubarItem><MenubarItem onClick={openArchive}><Upload /> Abrir .abn</MenubarItem><MenubarSeparator /><MenubarItem onClick={saveArchive}><Download /> {active?.kind === "expediente" ? "Guardar expediente como .abn" : "Guardar .abn"}</MenubarItem><MenubarSeparator /><MenubarItem onClick={activateAutosave}><Save /> Activar autoguardado</MenubarItem>{autosaveRef.current && <><MenubarItem onClick={() => void writeAutosave()}><Save /> Guardar ahora</MenubarItem><MenubarItem onClick={deactivateAutosave}><X /> Desactivar autoguardado</MenubarItem></>}</MenubarContent></MenubarMenu></Menubar>{autosaveRef.current && <span className="ml-4 text-xs text-[#F4FFF4]/80" role="status">{autosaveLabel}</span>}<div className="ml-auto flex items-center gap-2 pl-3"><Button variant={settingsOpen ? "secondary" : "ghost"} size="sm" className="max-w-64 hover:bg-[#F4FFF4]/10 hover:text-[#F4FFF4]" title={user.email} aria-label="Abrir configuración de cuenta" aria-pressed={settingsOpen} onClick={() => setSettingsOpen(true)}><Settings /><span className="max-w-48 truncate">{user.email}</span></Button><Button variant="ghost" size="sm" className="hover:bg-[#F4FFF4]/10 hover:text-[#F4FFF4]" disabled={loggingOut} onClick={() => void handleLogout()}><LogOut /> Salir</Button></div></header>
+    {(workspace.tabs.length > 0 || settingsOpen) && <nav className="fixed inset-x-0 top-12 z-20 flex h-12 border-b bg-muted/40 print:hidden" aria-label="Documentos abiertos"><div className="flex min-w-0 flex-1 items-end overflow-x-auto px-2 pt-2" role="tablist"><div role="tab" aria-selected={!settingsOpen && workspace.activeTabId === null} tabIndex={!settingsOpen && workspace.activeTabId === null ? 0 : -1} onClick={goHome} className={clsx("flex h-9 min-w-44 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-px motion-reduce:transition-none", !settingsOpen && workspace.activeTabId === null ? "bg-background" : "border-transparent text-muted-foreground")}><Home className="size-4 shrink-0 text-[var(--sb-color-text-strong)]" /><span className="min-w-0 flex-1 truncate">Inicio</span></div>{workspace.tabs.map((tab) => (
   <div 
     key={tab.id} 
     role="tab" 
@@ -483,7 +504,9 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
     )}
   >
     {tab.kind === "expediente" ? (
-      <Folder className={clsx("size-4 shrink-0", EXPEDIENTE_COLORS[(tab as ExpedienteTab).color]?.dot.replace("bg-", "text-") || "text-blue-500")} />
+      <Folder className="size-4 shrink-0 text-[var(--sb-color-text-strong)]" />
+    ) : tab.kind === "word" ? (
+      <FilePenLine className="size-4 shrink-0 text-[var(--sb-color-text-strong)]" />
     ) : (
       tab.expedienteId ? (
         <div className={clsx("size-2 rounded-full shrink-0", EXPEDIENTE_COLORS[(workspace.tabs.find(t => t.id === (tab as PdfTab).expedienteId && t.kind === "expediente") as ExpedienteTab)?.color || "blue"]?.dot || "bg-blue-500")} />
@@ -495,7 +518,7 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
     {tab.kind === "expediente" && <div className={clsx("size-2 rounded-full shrink-0", EXPEDIENTE_COLORS[(tab as ExpedienteTab).color]?.dot)} />}
     <button type="button" aria-label={`Cerrar ${tab.name}`} className="cursor-pointer rounded p-0.5 opacity-60 transition-[background-color,opacity,transform] duration-150 hover:scale-110 hover:bg-muted hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none" onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}><X className="size-3.5" /></button>
   </div>
-))}{settingsOpen && <div role="tab" aria-selected={settingsOpen} tabIndex={settingsOpen ? 0 : -1} onClick={() => setSettingsOpen(true)} className={clsx("flex h-9 min-w-44 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-px motion-reduce:transition-none", settingsOpen ? "bg-background" : "border-transparent text-muted-foreground")}><Settings className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">Configuración</span><button type="button" aria-label="Cerrar Configuración" className="cursor-pointer rounded p-0.5 opacity-60 transition-[background-color,opacity,transform] duration-150 hover:scale-110 hover:bg-muted hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeSettings(); }}><X className="size-3.5" /></button></div>}<DropdownMenu><DropdownMenuTrigger className="mb-1 ml-1 grid size-7 place-items-center"><Plus className="size-4" /></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onClick={openPdfs}><FileText /> Abrir PDF</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></nav>}
+))}{settingsOpen && <div role="tab" aria-selected={settingsOpen} tabIndex={settingsOpen ? 0 : -1} onClick={() => setSettingsOpen(true)} className={clsx("flex h-9 min-w-44 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-px motion-reduce:transition-none", settingsOpen ? "bg-background" : "border-transparent text-muted-foreground")}><Settings className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">Configuración</span><button type="button" aria-label="Cerrar Configuración" className="cursor-pointer rounded p-0.5 opacity-60 transition-[background-color,opacity,transform] duration-150 hover:scale-110 hover:bg-muted hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeSettings(); }}><X className="size-3.5" /></button></div>}<DropdownMenu><DropdownMenuTrigger className="mb-1 ml-1 grid size-7 place-items-center" aria-label="Crear o abrir"><Plus className="size-4" /></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onClick={createDocument}><FilePenLine /> Crear documento</DropdownMenuItem><DropdownMenuItem onClick={openPdfs}><FileText /> Abrir PDF</DropdownMenuItem><DropdownMenuItem onClick={() => setDialogOpen(true)}><Folder /> Crear expediente</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></nav>}
     {settingsOpen
       ? <main className="mx-auto w-full max-w-2xl px-6 pb-16 pt-28">
           <div>
@@ -595,7 +618,7 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
             setExpedienteStates(prev => {
               const state = prev.get(active.id);
               if (!state) return prev;
-              const newTree = movePdfNode(state.tree, nodeId, folderId);
+              const newTree = moveNode(state.tree, nodeId, folderId);
               const next = new Map(prev);
               next.set(active.id, { ...state, tree: newTree });
               return next;
@@ -624,6 +647,16 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
             });
           }}
         />
+      : active?.kind === "word" && activeWord
+      ? <WordEditor
+          key={activeWord.id}
+          document={activeWord}
+          onChange={(nextDocument) => setWorkspace((current) => ({
+            ...current,
+            wordDocuments: { ...current.wordDocuments, [nextDocument.id]: nextDocument },
+            tabs: current.tabs.map((tab) => tab.id === active.id && tab.kind === "word" ? { ...tab, name: nextDocument.title } : tab),
+          }))}
+        />
       : active?.kind === "pdf" && activePdf
       ? <PdfViewer
           key={activePdf.id}
@@ -651,6 +684,6 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
 }
 
 function documentId(pdf: ImportedPdf) { return `document:${pdf.name}-${pdf.lastModified}-${pdf.size}`; }
-function validWorkspace(value: unknown): AppWorkspace { if (!value || typeof value !== "object") return empty(); const candidate = value as Partial<AppWorkspace>; if (!Array.isArray(candidate.tabs)) return empty(); return { tabs: candidate.tabs.filter((item): item is Tab => !!item && typeof item.id === "string" && ((item.kind === "pdf" && typeof item.documentId === "string") || (item.kind === "expediente" && typeof item.name === "string"))), activeTabId: typeof candidate.activeTabId === "string" ? candidate.activeTabId : null }; }
+function validWorkspace(value: unknown): AppWorkspace { if (!value || typeof value !== "object") return empty(); const candidate = value as Partial<AppWorkspace>; if (!Array.isArray(candidate.tabs)) return empty(); const wordDocuments = Object.fromEntries(Object.entries(candidate.wordDocuments ?? {}).filter(([, item]) => isWordDocument(item))); const tabs = candidate.tabs.filter((item): item is Tab => !!item && typeof item.id === "string" && ((item.kind === "pdf" && typeof item.documentId === "string") || (item.kind === "word" && typeof item.documentId === "string" && !!wordDocuments[item.documentId]) || (item.kind === "expediente" && typeof item.name === "string"))); return { tabs, activeTabId: typeof candidate.activeTabId === "string" ? candidate.activeTabId : null, wordDocuments: wordDocuments as Record<string, WordDocument> }; }
 function isExpedienteState(value: unknown): value is ExpedienteState { return !!value && typeof value === "object" && typeof (value as ExpedienteState).name === "string" && Array.isArray((value as ExpedienteState).tree); }
 function validPdfViewStates(value: unknown): Record<string, PdfViewState> { if (!value || typeof value !== "object") return {}; return Object.fromEntries(Object.entries(value).filter(([, state]) => !!state && typeof state === "object" && Array.isArray((state as PdfViewState).highlights) && typeof (state as PdfViewState).currentPage === "number" && typeof (state as PdfViewState).scale === "number" && typeof (state as PdfViewState).searchQuery === "string")); }

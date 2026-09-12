@@ -517,9 +517,9 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
   const sidePanelOpen = searchOpen || highlightsOpen || lawsOpen || timelineOpenState;
 
   return (
-    <section className="relative flex h-full flex-col bg-muted/30">
+    <section className="sb-pdf-viewer relative flex h-full flex-col bg-muted/30">
       <div className={`pointer-events-none fixed inset-x-0 bottom-4 z-10 flex justify-center px-4 sm:justify-end ${sidePanelOpen ? "sm:right-96" : "sm:px-6"}`}>
-        <div className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-lg border bg-background/95 p-1 shadow-lg backdrop-blur">
+        <div className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-[6px] border border-[var(--sb-color-border-strong)] bg-white p-1 shadow-[5px_5px_0_var(--sb-color-shadow)] backdrop-blur">
           <Button variant="ghost" size="icon" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1} aria-label="Página anterior"><ChevronLeft /></Button>
           <label className="sr-only" htmlFor="page-number">Página</label>
           <input id="page-number" className="h-8 w-14 rounded border bg-background px-2 text-center tabular-nums" type="number" min="1" max={pageCount ?? undefined} value={currentPage} onChange={(event) => goToPage(Number(event.target.value))} />
