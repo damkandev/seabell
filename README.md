@@ -8,6 +8,10 @@ Seabell es una aplicación de escritorio local-first para revisar, buscar y anot
 
 > El proyecto está en desarrollo temprano (`0.1.0`). La estructura de los archivos `.abn` puede cambiar entre versiones.
 
+## Descargar
+
+Descarga la última versión para macOS o Windows en [dapan.es/seabell](https://dapan.es/seabell). Todas las versiones están en [GitHub Releases](https://github.com/damkandev/seabell/releases).
+
 ## Funcionalidades
 
 - Importación y lectura de PDFs locales.
@@ -45,6 +49,8 @@ pnpm test:e2e       # pruebas end-to-end en Chromium, Firefox y WebKit sobre el 
 pnpm build          # export estático del frontend en apps/web/out
 pnpm build:desktop  # instalador de la app de escritorio
 ```
+
+Para publicar una versión, sube la versión en `apps/desktop/src-tauri/tauri.conf.json` y pushea un tag con el mismo número (`git tag v0.2.0 && git push origin v0.2.0`). El workflow `Release` compila el `.dmg` universal de macOS y el instalador `.exe` de Windows y los sube al release.
 
 ## Arquitectura
 

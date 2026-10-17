@@ -1,0 +1,62 @@
+name: Release
+
+# Pushear un tag vX.Y.Z publica los instaladores de escritorio en GitHub Releases.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh release create "$GITHUB_REF_NAME" --title "Seabell ${GITHUB_REF_NAME#v}" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            args: --target universal-apple-darwin --bundles dmg
+            bundle: apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            asset: Seabell-macOS.dmg
+          - os: windows-latest
+            rust-targets: ""
+            args: --bundles nsis
+            bundle: apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+            asset: Seabell-Windows.exe
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @seabell/desktop tauri build ${{ matrix.args }}
+      # Copia con nombre fijo para que releases/latest/download/<asset> siempre apunte a la última versión.
+      - run: |
+          cp ${{ matrix.bundle }} "${{ matrix.asset }}"
+          gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
