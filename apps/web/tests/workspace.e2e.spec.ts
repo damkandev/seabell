@@ -113,3 +113,41 @@ test("keeps the PDFs after reopening the app twice", async ({ page, browserName 
   }
   await expect(page.getByText("no pudieron restaurarse")).toHaveCount(0);
 });
+
+test("removes a document, then deletes the expediente from Inicio", async ({ page }) => {
+  await createExpedienteWithPdfs(page);
+  await page.getByRole("button", { name: "Abrir demanda a la derecha" }).click();
+  const tree = page.getByRole("navigation", { name: "Documentos del expediente" });
+
+  await tree.getByRole("button", { name: "Quitar contestacion del expediente" }).click();
+  const confirm = page.getByRole("dialog", { name: "Quitar documento" });
+  await confirm.getByRole("button", { name: "Cancelar" }).click();
+  await expect(confirm).toBeHidden();
+  await expect(tree).toContainText("2 documentos");
+
+  await tree.getByRole("button", { name: "Quitar contestacion del expediente" }).click();
+  await confirm.getByRole("button", { name: "Quitar", exact: true }).click();
+  await expect(page.getByRole("region", { name: "contestacion", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "demanda", exact: true })).toBeVisible();
+  await expect(tree).toContainText("1 documento");
+
+  await page.getByRole("button", { name: "Volver a Inicio" }).click();
+  await page.getByRole("button", { name: "Eliminar Rol C-1-2026" }).click();
+  await page.getByRole("dialog", { name: "Eliminar expediente" }).getByRole("button", { name: "Eliminar", exact: true }).click();
+  await expect(page.getByText("Aún no tienes expedientes")).toBeVisible();
+  await expect(page.getByText("0 documentos")).toBeVisible();
+
+  // Ni el expediente ni sus PDFs reaparecen como "Sin expediente" al recargar.
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await expect(page.getByText("Aún no tienes expedientes")).toBeVisible();
+  await expect(page.getByText("0 documentos")).toBeVisible();
+});
+
+test("deletes the open expediente from the workspace", async ({ page }) => {
+  await createExpedienteWithPdfs(page);
+  await page.getByRole("button", { name: "Eliminar expediente" }).click();
+  await page.getByRole("dialog", { name: "Eliminar expediente" }).getByRole("button", { name: "Eliminar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
+  await expect(page.getByText("Aún no tienes expedientes")).toBeVisible();
+});

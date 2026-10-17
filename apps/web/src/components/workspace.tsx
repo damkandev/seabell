@@ -9,6 +9,7 @@ import { loadPdfJs } from "@/lib/pdfjs";
 import { PdfSearchIndex, type PdfSearchResult } from "@/lib/pdf-search";
 import { createLocalId } from "@/lib/utils";
 import { Icon } from "./icon";
+import { ConfirmDialog } from "./new-expediente-dialog";
 import { PdfViewer, type PanelTab, type PdfReveal, type PdfViewState } from "./pdf-viewer";
 
 export type OpenPdf = ImportedPdf & { id: string };
@@ -40,9 +41,12 @@ type WorkspaceProps = {
   onDropFiles: (files: File[], folderId: string | null) => void;
   onExport: () => void;
   onHome: () => void;
+  /** Quita el nodo del árbol; el padre decide si el PDF sigue guardado. */
+  onRemoveDocument: (nodeId: string) => void;
+  onDelete: () => void;
 };
 
-export function Workspace({ state, documents, viewStates, highlightColor, openDoc, onPatch, onViewState, onAddPdfs, onDropFiles, onExport, onHome }: WorkspaceProps) {
+export function Workspace({ state, documents, viewStates, highlightColor, openDoc, onPatch, onViewState, onAddPdfs, onDropFiles, onExport, onHome, onRemoveDocument, onDelete }: WorkspaceProps) {
   const docNodes = pdfNodes(state.tree).filter((node) => documents.has(node.documentId));
   const docName = (doc: string) => displayName(docNodes.find((node) => node.documentId === doc)?.name ?? documents.get(doc)?.name ?? "Documento");
 
@@ -57,6 +61,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
   const [drop, setDrop] = useState<{ key: string; zone: DropZone } | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [reveal, setReveal] = useState<{ pane: string; at: PdfReveal } | null>(null);
+  const [removing, setRemoving] = useState<{ node: string; doc: string; name: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<{ id: string; pos: number; start: number[]; perPx: number; min: number } | null>(null);
 
@@ -88,6 +93,12 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
   const closePane = (key: string) => {
     const cols = withoutPane(layout.cols, key);
     commit({ cols, focus: key === layout.focus ? allPanes(cols)[0]?.key ?? null : layout.focus });
+  };
+
+  const removeDocument = ({ node, doc }: { node: string; doc: string }) => {
+    const cols = panes.filter((pane) => pane.doc === doc).reduce((next, pane) => withoutPane(next, pane.key), layout.cols);
+    commit({ cols, focus: allPanes(cols).some((pane) => pane.key === layout.focus) ? layout.focus : allPanes(cols)[0]?.key ?? null });
+    onRemoveDocument(node);
   };
 
   useEffect(() => {
@@ -178,14 +189,17 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
           event.dataTransfer.setData(DOC_TYPE, JSON.stringify({ doc, node: node.id }));
           event.dataTransfer.effectAllowed = "copyMove";
         }}>
-          <button type="button" className={`node h-[34px] pr-8 ${isFocused ? "is-focused" : isOpen ? "text-ink" : ""}`} style={indent} onClick={(event) => open(doc, event.altKey)} aria-current={isFocused ? "true" : undefined}>
+          <button type="button" className={`node h-[34px] pr-14 ${isFocused ? "is-focused" : isOpen ? "text-ink" : ""}`} style={indent} onClick={(event) => open(doc, event.altKey)} aria-current={isFocused ? "true" : undefined}>
             <Icon name="pdf" strokeWidth={1.75} />
             <span className="min-w-0 flex-1 truncate">{displayName(node.name)}</span>
             {isOpen && !isFocused && <span aria-hidden="true" className="size-1.5 flex-none rounded-full bg-ink-3" />}
             <span className="font-mono text-[11px] text-ink-3 group-hover:invisible">{viewStates[doc]?.pageCount ?? ""}</span>
           </button>
-          <button type="button" className="ib absolute top-[5px] right-1 !h-6 !min-w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Abrir ${displayName(node.name)} a la derecha`} title="Abrir a la derecha (⌥ clic)" onClick={() => open(doc, true)}>
+          <button type="button" className="ib absolute top-[5px] right-7 !h-6 !min-w-6 !px-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Abrir ${displayName(node.name)} a la derecha`} title="Abrir a la derecha (⌥ clic)" onClick={() => open(doc, true)}>
             <Icon name="openRight" />
+          </button>
+          <button type="button" className="ib absolute top-[5px] right-1 !h-6 !min-w-6 !px-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Quitar ${displayName(node.name)} del expediente`} title="Quitar del expediente" onClick={() => setRemoving({ node: node.id, doc, name: displayName(node.name) })}>
+            <Icon name="trash" />
           </button>
         </li>
       );
@@ -266,7 +280,8 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
     <div className="flex h-svh overflow-hidden bg-surface">
       <nav aria-label="Documentos del expediente" className="flex w-[232px] flex-none flex-col border-r border-line bg-surface-2">
         <div className="titlebar flex items-center gap-0.5 pr-2 pl-[78px]" data-tauri-drag-region>
-          <button type="button" className="ib ml-auto" aria-label="Guardar expediente como .abn" title="Guardar como .abn" onClick={onExport}><Icon name="export" /></button>
+          <button type="button" className="ib ml-auto" aria-label="Eliminar expediente" title="Eliminar expediente" onClick={onDelete}><Icon name="trash" /></button>
+          <button type="button" className="ib" aria-label="Guardar expediente como .abn" title="Guardar como .abn" onClick={onExport}><Icon name="export" /></button>
           <button type="button" className="ib" aria-label="Volver a Inicio" title="Volver a Inicio" onClick={onHome}><Icon name="back" /></button>
         </div>
         <div className="px-5 pt-3 pb-4">
@@ -433,6 +448,15 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
           </div>
         </aside>
       )}
+      <ConfirmDialog
+        open={removing !== null}
+        title="Quitar documento"
+        confirmLabel="Quitar"
+        onClose={() => setRemoving(null)}
+        onConfirm={() => { if (removing) removeDocument(removing); }}
+      >
+        Se quitará «{removing?.name}» de «{state.name}». Si no está en otro expediente, se borrarán de este equipo el PDF y sus resaltes.
+      </ConfirmDialog>
     </div>
   );
 }

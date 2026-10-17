@@ -3,16 +3,16 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { exportAbn, importAbn, type AbnSerializableValue } from "@/lib/abn";
-import { addPdfNode, collectDocumentIds, createExpedienteState, type ExpedienteNode, type ExpedienteState } from "@/lib/expediente";
+import { addPdfNode, collectDocumentIds, createExpedienteState, removePdfNode, type ExpedienteNode, type ExpedienteState } from "@/lib/expediente";
 import { importLocalPdf, type ImportedPdf } from "@/lib/pdf-import";
 import { DEFAULT_HIGHLIGHT_COLOR, isHighlightColor } from "@/lib/pdf-selection/types";
 import { createLocalId } from "@/lib/utils";
 import { createWordDocument, isWordDocument, type WordDocument } from "@/lib/word-document";
-import { getWorkspace, saveWorkspace, WORKSPACE_STORAGE_VERSION, type RestoredWorkspaceDocument } from "@/lib/workspace-storage";
+import { deleteWorkspace, getWorkspace, saveWorkspace, WORKSPACE_STORAGE_VERSION, type RestoredWorkspaceDocument } from "@/lib/workspace-storage";
 import { CommandPalette, type PaletteItem } from "./command-palette";
 import { Icon } from "./icon";
 import { Inicio, type ExpedienteSummary, type RecentDoc, type RecentNote } from "./inicio";
-import { NewExpedienteDialog } from "./new-expediente-dialog";
+import { ConfirmDialog, NewExpedienteDialog } from "./new-expediente-dialog";
 import { firstPage } from "./pdf-panels";
 import type { PdfViewState } from "./pdf-viewer";
 import { WordEditor } from "./word-editor";
@@ -54,6 +54,7 @@ export function SeabellApp() {
   const [screen, setScreen] = useState<Screen>({ kind: "inicio" });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<string | null>(null);
   const [highlightColor, setHighlightColor] = useState(DEFAULT_HIGHLIGHT_COLOR);
 
   useEffect(() => {
@@ -151,6 +152,34 @@ export function SeabellApp() {
     const id = `exp-${createLocalId()}`;
     setExpedientes((prev) => new Map(prev).set(id, createExpedienteState(name, prev.size)));
     openExpediente(id);
+  }
+
+  /** Quita de `documents` y de sus estados los PDFs que ya no figuran en ningún expediente. */
+  function dropOrphans(next: Map<string, ExpedienteState>, candidates: string[]) {
+    const referenced = new Set([...next.values()].flatMap((state) => collectDocumentIds(state.tree)));
+    const orphans = new Set(candidates.filter((doc) => !referenced.has(doc)));
+    if (!orphans.size) return;
+    setDocuments((list) => list.filter((doc) => !orphans.has(doc.id)));
+    setViewStates((states) => Object.fromEntries(Object.entries(states).filter(([doc]) => !orphans.has(doc))));
+  }
+
+  function removeDocument(id: string, nodeId: string) {
+    const state = expedientes.get(id);
+    if (!state) return;
+    const { tree, removed } = removePdfNode(state.tree, nodeId);
+    patchExpediente(id, { tree });
+    if (removed?.kind === "pdf") dropOrphans(new Map(expedientes).set(id, { ...state, tree }), [removed.documentId]);
+  }
+
+  function deleteExpediente(id: string) {
+    const state = expedientes.get(id);
+    if (!state) return;
+    const next = new Map(expedientes);
+    next.delete(id);
+    setExpedientes(next);
+    dropOrphans(next, collectDocumentIds(state.tree));
+    if (current === id) setScreen({ kind: "inicio" });
+    void deleteWorkspace(id).catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudo eliminar el expediente."));
   }
 
   async function importPdfs(files: File[], expediente: string | null, folder: string | null) {
@@ -297,6 +326,8 @@ export function SeabellApp() {
           onAddPdfs={(folder) => pick({ mode: "pdf", expediente: screen.id, folder })}
           onDropFiles={(files, folder) => void importPdfs(files, screen.id, folder)}
           onExport={() => void exportExpediente(screen.id)}
+          onRemoveDocument={(nodeId) => removeDocument(screen.id, nodeId)}
+          onDelete={() => setToDelete(screen.id)}
           onHome={home}
         />
       ) : screen.kind === "escrito" && escrito ? (
@@ -330,6 +361,7 @@ export function SeabellApp() {
           onImportAbn={() => pick({ mode: "abn" })}
           onSearch={() => setPaletteOpen(true)}
           onOpenExpediente={openExpediente}
+          onDeleteExpediente={setToDelete}
           onNewEscrito={newEscrito}
           onOpenEscrito={(id) => setScreen({ kind: "escrito", id })}
           onDropFiles={(files) => void importPdfs(files.filter((file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name)), null, null)}
@@ -341,6 +373,15 @@ export function SeabellApp() {
         </p>
       )}
       <NewExpedienteDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onConfirm={createExpediente} />
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Eliminar expediente"
+        confirmLabel="Eliminar"
+        onClose={() => setToDelete(null)}
+        onConfirm={() => { if (toDelete) deleteExpediente(toDelete); }}
+      >
+        Se eliminará «{toDelete && expedientes.get(toDelete)?.name}» y, de este equipo, los PDFs y resaltes que no estén en otro expediente.
+      </ConfirmDialog>
       <CommandPalette open={paletteOpen} items={paletteItems} onClose={() => setPaletteOpen(false)} />
       <input ref={fileInput} className="sr-only" type="file" accept="application/pdf,.pdf" multiple aria-label="Seleccionar PDF o archivo .abn" tabIndex={-1} onChange={selectFiles} />
     </>

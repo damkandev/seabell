@@ -292,7 +292,14 @@ export async function getWorkspace<T extends SerializableWorkspace>(workspaceKey
   }
 }
 
-export async function deleteWorkspace(workspaceKey: string): Promise<void> {
+export function deleteWorkspace(workspaceKey: string): Promise<void> {
+  // En la misma cola que los guardados: uno pendiente no puede recrear el workspace borrado.
+  const task = saveQueue.catch(() => undefined).then(() => deleteWorkspaceNow(workspaceKey));
+  saveQueue = task;
+  return task;
+}
+
+async function deleteWorkspaceNow(workspaceKey: string): Promise<void> {
   const key = storageKey(workspaceKey);
   try {
     localStorageOrThrow().removeItem(key);

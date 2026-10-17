@@ -25,6 +25,7 @@ type InicioProps = {
   onImportAbn: () => void;
   onSearch: () => void;
   onOpenExpediente: (id: string, doc?: string) => void;
+  onDeleteExpediente: (id: string) => void;
   onNewEscrito: () => void;
   onOpenEscrito: (id: string) => void;
   onDropFiles: (files: File[]) => void;
@@ -143,10 +144,15 @@ export function Inicio(props: InicioProps) {
               {expedientes.length ? (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
                   {expedientes.map((exp) => (
-                    <button key={exp.id} type="button" className="card flex cursor-pointer flex-col gap-2.5 p-4" onClick={() => props.onOpenExpediente(exp.id)}>
-                      <span className="font-serif text-[17px]">{exp.name}</span>
-                      <span className="font-mono text-[11px] text-ink-3">{exp.docs} docs · {exp.highlights} resaltes</span>
-                    </button>
+                    <div key={exp.id} className="group relative">
+                      <button type="button" className="card flex w-full cursor-pointer flex-col gap-2.5 p-4 pr-10" onClick={() => props.onOpenExpediente(exp.id)}>
+                        <span className="font-serif text-[17px]">{exp.name}</span>
+                        <span className="font-mono text-[11px] text-ink-3">{exp.docs} docs · {exp.highlights} resaltes</span>
+                      </button>
+                      <button type="button" className="ib absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Eliminar ${exp.name}`} title="Eliminar expediente" onClick={() => props.onDeleteExpediente(exp.id)}>
+                        <Icon name="trash" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               ) : <p className="m-0 text-ink-3">Aún no tienes expedientes. Crea uno o abre un PDF para empezar.</p>}

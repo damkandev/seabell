@@ -18,6 +18,7 @@ const paths = {
   back: <path d="m15 6-6 6 6 6" />,
   chevron: <path d="m9 6 6 6-6 6" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
+  trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   split: <>{frame}<path d="M12 4v16" /></>,
   openRight: <>{frame}<path d="M12 4v16M15 12h3" /></>,
   panel: <>{frame}<path d="M15 4v16" /></>,
