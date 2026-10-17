@@ -111,6 +111,14 @@
   background: color-mix(in srgb, var(--highlight-color, #f6dd3b) 75%, transparent);
 }
 
+/* Trazo de resaltador de izquierda a derecha al crear un resalte. */
+.viewer :global(.pdfHighlightFresh) { animation: highlight-stroke 320ms var(--sb-ease-out); }
+
+@keyframes highlight-stroke {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0); }
+}
+
 
 .viewer :global(.textLayer) {
   color-scheme: only light;

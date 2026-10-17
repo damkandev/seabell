@@ -56,14 +56,14 @@ export function Inicio(props: InicioProps) {
         <div className="min-h-0 flex-1 overflow-y-auto pb-2">
           <SideSection title="Expedientes" addLabel="Nuevo expediente" onAdd={props.onNewExpediente}>
             {expedientes.map((exp) => (
-              <button key={exp.id} type="button" className="node" onClick={() => props.onOpenExpediente(exp.id)}>
+              <button key={exp.id} type="button" className="node sb-item" onClick={() => props.onOpenExpediente(exp.id)}>
                 <span className="min-w-0 flex-1 truncate">{exp.name}</span><span className="font-mono text-[11px] text-ink-3">{exp.docs}</span>
               </button>
             ))}
           </SideSection>
           <SideSection title="Escritos" addLabel="Nuevo escrito" onAdd={props.onNewEscrito}>
             {escritos.map((escrito) => (
-              <button key={escrito.id} type="button" className="node" onClick={() => props.onOpenEscrito(escrito.id)}>
+              <button key={escrito.id} type="button" className="node sb-item" onClick={() => props.onOpenEscrito(escrito.id)}>
                 <Icon name="escrito" /><span className="min-w-0 flex-1 truncate">{escrito.title || "Sin título"}</span>
               </button>
             ))}
@@ -112,11 +112,11 @@ export function Inicio(props: InicioProps) {
                 onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); setDropping(true); } }}
                 onDragLeave={() => setDropping(false)}
                 onDrop={(event) => { event.preventDefault(); setDropping(false); props.onDropFiles(Array.from(event.dataTransfer.files)); }}
-                className={`flex h-[72px] cursor-pointer items-center justify-center rounded-[3px] border border-dashed text-ink-3 ${dropping ? "border-ink bg-surface-3 text-ink" : "border-line-2 bg-[repeating-linear-gradient(135deg,var(--bg-2)_0_6px,var(--bg)_6px_12px)]"}`}
+                className={`flex h-[72px] cursor-pointer items-center justify-center rounded-[3px] border border-dashed text-ink-3 transition-colors duration-100 ${dropping ? "border-ink bg-surface-3 text-ink" : "border-line-2 bg-[repeating-linear-gradient(135deg,var(--bg-2)_0_6px,var(--bg)_6px_12px)]"}`}
               >
                 Suelta PDFs aquí para agregarlos a un expediente
               </button>
-              {error && <p className="m-0 text-destructive" role="alert">{error}</p>}
+              {error && <p className="sb-enter m-0 text-destructive" role="alert">{error}</p>}
             </section>
 
             <section aria-labelledby="h-recientes">
@@ -127,7 +127,7 @@ export function Inicio(props: InicioProps) {
                     <span role="columnheader">Documento</span><span role="columnheader">Expediente</span><span role="columnheader">Págs.</span><span role="columnheader">Resaltes</span><span role="columnheader" className="text-right">Abierto</span>
                   </div>
                   {recents.map((recent) => (
-                    <button key={recent.doc} type="button" role="row" className={`${row} w-full cursor-pointer text-left transition-colors duration-75 hover:bg-surface-2`} onClick={() => props.onOpenExpediente(recent.expediente.id, recent.doc)}>
+                    <button key={recent.doc} type="button" role="row" className={`${row} sb-item w-full cursor-pointer text-left transition-colors duration-75 hover:bg-surface-2`} onClick={() => props.onOpenExpediente(recent.expediente.id, recent.doc)}>
                       <span role="cell" className="flex min-w-0 items-center gap-2.5"><Icon name="pdf" strokeWidth={1.75} className="size-4 flex-none text-ink-3" /><span className="truncate">{recent.name}</span></span>
                       <span role="cell" className="truncate text-ink-2">{recent.expediente.name}</span>
                       <span role="cell" className={meta}>{recent.pages ?? "—"}</span>
@@ -144,7 +144,7 @@ export function Inicio(props: InicioProps) {
               {expedientes.length ? (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
                   {expedientes.map((exp) => (
-                    <div key={exp.id} className="group relative">
+                    <div key={exp.id} className="sb-item group relative">
                       <button type="button" className="card flex w-full cursor-pointer flex-col gap-2.5 p-4 pr-10" onClick={() => props.onOpenExpediente(exp.id)}>
                         <span className="font-serif text-[17px]">{exp.name}</span>
                         <span className="font-mono text-[11px] text-ink-3">{exp.docs} docs · {exp.highlights} resaltes</span>
@@ -162,7 +162,7 @@ export function Inicio(props: InicioProps) {
           <aside aria-labelledby="h-notas" className="flex max-w-[340px] flex-[1_1_280px] flex-col gap-2">
             <h2 id="h-notas" className={`${h2} mb-1`}>Últimas notas</h2>
             {notes.map((note) => (
-              <button key={note.id} type="button" className="card flex cursor-pointer flex-col gap-1.5 p-4" onClick={() => props.onOpenExpediente(note.expediente.id, note.doc)}>
+              <button key={note.id} type="button" className="card sb-item flex cursor-pointer flex-col gap-1.5 p-4" onClick={() => props.onOpenExpediente(note.expediente.id, note.doc)}>
                 <span className="text-sm leading-normal">{note.note}</span>
                 <span className="font-mono text-[11px] text-ink-3">{note.docName} · pág. {note.page} · {note.expediente.name}</span>
               </button>

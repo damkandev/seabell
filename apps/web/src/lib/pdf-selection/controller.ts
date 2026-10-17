@@ -89,6 +89,8 @@ export class PdfSelectionController {
   readonly #pageModels = new Map<number, PageTextModel>();
   readonly #pagePromises = new Map<number, Promise<PageTextModel | null>>();
   #highlights: PdfHighlight[] = [];
+  /** Resalte recién creado: solo su primer dibujo lleva la animación de trazo. */
+  #freshHighlightId: string | null = null;
   #selection: SelectionRange | null = null;
   #drag: DragState | null = null;
   #rangeReady = true;
@@ -652,7 +654,7 @@ export class PdfSelectionController {
 
       for (const rect of rects) {
         const el = document.createElement("div");
-        el.className = "pdfHighlight";
+        el.className = highlight.id === this.#freshHighlightId ? "pdfHighlight pdfHighlightFresh" : "pdfHighlight";
         el.dataset.highlightId = highlight.id;
         Object.assign(el.style, {
           left: `${rect.x * 100}%`,
@@ -815,7 +817,9 @@ export class PdfSelectionController {
     this.#highlights = [...this.#highlights, highlight];
     this.#onHighlightsChange?.(this.#highlights);
     this.clear();
+    this.#freshHighlightId = highlight.id;
     this.#renderHighlights();
+    this.#freshHighlightId = null;
     return highlight;
   }
 
