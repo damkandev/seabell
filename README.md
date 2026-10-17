@@ -52,6 +52,8 @@ pnpm build:desktop  # instalador de la app de escritorio
 
 Para publicar una versión, sube la versión en `apps/desktop/src-tauri/tauri.conf.json` y pushea un tag con el mismo número (`git tag v0.2.0 && git push origin v0.2.0`). El workflow `Release` compila el `.dmg` universal de macOS y el instalador `.exe` de Windows y los sube al release.
 
+Las apps instaladas revisan al abrir el `latest.json` del último release y ofrecen actualizarse. Ese archivo y los artefactos de actualización se firman con la clave del secret `TAURI_SIGNING_PRIVATE_KEY` (la pública está en `tauri.conf.json`). Guarda un respaldo de la clave privada: si se pierde, las instalaciones existentes no podrán actualizarse.
+
 ## Arquitectura
 
 - `apps/web/`: frontend Next.js compilado como export estático (`output: "export"`), sin rutas de servidor.

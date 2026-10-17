@@ -1,12 +1,12 @@
 name: Release
 
-# Pushear un tag vX.Y.Z publica los instaladores de escritorio en GitHub Releases.
-# En otras ramas que tocan la app de escritorio solo compila y deja los instaladores como artifacts.
+# Pushear un tag vX.Y.Z publica los instaladores de escritorio y el latest.json del updater en GitHub Releases.
+# En otras ramas que tocan la app de escritorio solo compila y deja los archivos como artifacts.
 on:
   push:
     tags: ["v*"]
     branches-ignore: ["main"]
-    paths: [".github/workflows/release.yml", "apps/desktop/**"]
+    paths: [".github/workflows/release.yml", "apps/desktop/**", "apps/web/src/components/update-notice.tsx"]
 
 permissions:
   contents: write
@@ -30,14 +30,20 @@ jobs:
         include:
           - os: macos-latest
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
-            args: --target universal-apple-darwin --bundles dmg
+            args: --target universal-apple-darwin --bundles app,dmg
             bundle: apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
             asset: Seabell-macOS.dmg
+            # El updater de macOS reemplaza la .app con este archivo comprimido.
+            updater: apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Seabell.app.tar.gz
+            updater-asset: Seabell-macOS.app.tar.gz
           - os: windows-latest
             rust-targets: ""
             args: --bundles nsis
             bundle: apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
             asset: Seabell-Windows.exe
+            # En Windows el updater ejecuta el mismo instalador.
+            updater: apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+            updater-asset: Seabell-Windows.exe
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -59,15 +65,46 @@ jobs:
           workspaces: apps/desktop/src-tauri
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @seabell/desktop tauri build ${{ matrix.args }}
-      # Copia con nombre fijo para que releases/latest/download/<asset> siempre apunte a la última versión.
-      - run: cp ${{ matrix.bundle }} "${{ matrix.asset }}"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+      # Copias con nombre fijo para que releases/latest/download/<asset> siempre apunte a la última versión.
+      - run: |
+          mkdir out
+          cp ${{ matrix.bundle }} "out/${{ matrix.asset }}"
+          cp ${{ matrix.updater }} "out/${{ matrix.updater-asset }}"
+          cp ${{ matrix.updater }}.sig "out/${{ matrix.updater-asset }}.sig"
       - if: startsWith(github.ref, 'refs/tags/v')
-        run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --clobber
+        run: gh release upload "$GITHUB_REF_NAME" out/* --clobber
         env:
           GH_TOKEN: ${{ github.token }}
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
-          path: ${{ matrix.asset }}
+          path: out/*
           retention-days: 7
+
+  # Manifiesto que la app consulta en releases/latest/download/latest.json.
+  manifest:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern '*.sig'
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+          jq -n \
+            --arg version "${GITHUB_REF_NAME#v}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg mac "$(cat Seabell-macOS.app.tar.gz.sig)" \
+            --arg win "$(cat Seabell-Windows.exe.sig)" \
+            --arg base "$base" \
+            '{version: $version, pub_date: $date, platforms: {
+              "darwin-aarch64": {signature: $mac, url: "\($base)/Seabell-macOS.app.tar.gz"},
+              "darwin-x86_64": {signature: $mac, url: "\($base)/Seabell-macOS.app.tar.gz"},
+              "windows-x86_64": {signature: $win, url: "\($base)/Seabell-Windows.exe"}
+            }}' > latest.json
+          gh release upload "$GITHUB_REF_NAME" latest.json --repo "$GITHUB_REPOSITORY" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
