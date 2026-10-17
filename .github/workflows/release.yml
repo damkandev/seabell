@@ -1,15 +1,19 @@
 name: Release
 
 # Pushear un tag vX.Y.Z publica los instaladores de escritorio en GitHub Releases.
+# En otras ramas que tocan la app de escritorio solo compila y deja los instaladores como artifacts.
 on:
   push:
     tags: ["v*"]
+    branches-ignore: ["main"]
+    paths: [".github/workflows/release.yml", "apps/desktop/**"]
 
 permissions:
   contents: write
 
 jobs:
   release:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,6 +23,7 @@ jobs:
 
   build:
     needs: release
+    if: ${{ !failure() && !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
@@ -55,8 +60,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @seabell/desktop tauri build ${{ matrix.args }}
       # Copia con nombre fijo para que releases/latest/download/<asset> siempre apunte a la última versión.
-      - run: |
-          cp ${{ matrix.bundle }} "${{ matrix.asset }}"
-          gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --clobber
+      - run: cp ${{ matrix.bundle }} "${{ matrix.asset }}"
+      - if: startsWith(github.ref, 'refs/tags/v')
+        run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+      - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          retention-days: 7
