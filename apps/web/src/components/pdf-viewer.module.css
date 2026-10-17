@@ -187,35 +187,6 @@
 
 .viewer :global(.textLayer.selecting .endOfContent) { top: 0; }
 
-.viewer :global(.pdfLawLinks) {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-}
-
-.viewer :global(.pdfLawLink) {
-  position: absolute;
-  display: block;
-  cursor: pointer;
-  pointer-events: auto;
-  border: 0;
-  border-bottom: 2px solid rgb(37 99 235 / 85%);
-  background: rgb(59 130 246 / 10%);
-  padding: 0;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.viewer :global(.pdfLawLink:hover) {
-  border-bottom-color: rgb(29 78 216);
-  background: rgb(59 130 246 / 22%);
-}
-
-.viewer :global(.pdfLawLink:focus-visible) {
-  outline: 2px solid rgb(37 99 235);
-  outline-offset: 1px;
-}
-
 .viewer :global(.annotationLayer) {
   color-scheme: only light;
   position: absolute;

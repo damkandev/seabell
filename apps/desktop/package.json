@@ -1,0 +1,15 @@
+{
+  "name": "@seabell/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aplicación de escritorio de Seabell (Tauri).",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

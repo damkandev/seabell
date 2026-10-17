@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, File, FilePenLine, FileText, Folder, Home, LogOut, Plus, Save, Settings, Upload, X } from "lucide-react";
+import { Download, File, FilePenLine, FileText, Folder, Home, Plus, Save, Settings, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 
@@ -17,7 +17,6 @@ import { ExpedienteView } from "@/components/expediente-view";
 import { Button } from "@/components/ui/button";
 import { clsx } from "clsx";
 import { createLocalId } from "@/lib/utils";
-import type { AuthUser } from "@/lib/auth-api";
 import { DEFAULT_HIGHLIGHT_COLOR, isHighlightColor } from "@/lib/pdf-selection/types";
 import { createWordDocument, isWordDocument, type WordDocument } from "@/lib/word-document";
 import { WordEditor } from "@/components/word-editor";
@@ -71,7 +70,7 @@ function sameAutosaveContext(a: AutosaveContext, b: AutosaveContext): boolean {
     || a.kind === "expediente" && b.kind === "expediente" && a.id === b.id;
 }
 
-export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () => Promise<void> }) {
+export function PdfImporter() {
   const pdfInput = useRef<HTMLInputElement>(null);
   const fileInputMode = useRef<"pdf" | "archive">("pdf");
   const hydrated = useRef(false);
@@ -84,7 +83,6 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
   const [dialogOpen, setDialogOpen] = useState(false);
   const [autosaveStatus, setAutosaveStatus] = useState<"off" | "saving" | "saved" | "error">("off");
   const [autosaveSavedAt, setAutosaveSavedAt] = useState<number | null>(null);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [highlightColor, setHighlightColor] = useState(readHighlightColor);
   const dragThreshold = useRef<{x: number, y: number} | null>(null);
@@ -439,15 +437,6 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
 
   const autosaveLabel = autosaveStatus === "saving" ? "Guardando…" : autosaveStatus === "error" ? "Autoguardado: error" : autosaveStatus === "saved" && autosaveSavedAt ? `Guardado a las ${new Date(autosaveSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Autoguardado activo";
 
-  async function handleLogout() {
-    setLoggingOut(true);
-    try {
-      await onLogout();
-    } finally {
-      setLoggingOut(false);
-    }
-  }
-
   function updateHighlightColor(nextColor: string) {
     setHighlightColor(nextColor);
     try {
@@ -467,7 +456,7 @@ export function PdfImporter({ user, onLogout }: { user: AuthUser; onLogout: () =
   }
 
   return <div className={active && !settingsOpen ? "sb-workspace h-svh overflow-hidden bg-background pt-24 text-foreground" : "sb-workspace min-h-svh bg-background text-foreground"}>
-    <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b px-4 print:hidden"><button type="button" aria-label="Ir al inicio" onClick={goHome} className="mr-3 hidden size-6 shrink-0 items-center justify-center text-inherit outline-none focus-visible:outline-2 focus-visible:outline-[#F4FFF4] lg:flex"><span className="sb-workspace-logo" aria-hidden="true" /></button><Menubar className="w-fit border-0 bg-transparent text-inherit shadow-none"><MenubarMenu><MenubarTrigger className="gap-1.5 hover:bg-[#F4FFF4]/10 aria-expanded:bg-[#F4FFF4]/10"><File className="size-4" /> Archivo</MenubarTrigger><MenubarContent><MenubarItem onClick={createDocument}><FilePenLine /> Crear documento</MenubarItem><MenubarItem onClick={() => setDialogOpen(true)}><Folder /> Crear expediente</MenubarItem><MenubarItem onClick={openPdfs}><FileText /> Abrir PDF</MenubarItem><MenubarItem onClick={openArchive}><Upload /> Abrir .abn</MenubarItem><MenubarSeparator /><MenubarItem onClick={saveArchive}><Download /> {active?.kind === "expediente" ? "Guardar expediente como .abn" : "Guardar .abn"}</MenubarItem><MenubarSeparator /><MenubarItem onClick={activateAutosave}><Save /> Activar autoguardado</MenubarItem>{autosaveRef.current && <><MenubarItem onClick={() => void writeAutosave()}><Save /> Guardar ahora</MenubarItem><MenubarItem onClick={deactivateAutosave}><X /> Desactivar autoguardado</MenubarItem></>}</MenubarContent></MenubarMenu></Menubar>{autosaveRef.current && <span className="ml-4 text-xs text-[#F4FFF4]/80" role="status">{autosaveLabel}</span>}<div className="ml-auto flex items-center gap-2 pl-3"><Button variant={settingsOpen ? "secondary" : "ghost"} size="sm" className="max-w-64 hover:bg-[#F4FFF4]/10 hover:text-[#F4FFF4]" title={user.email} aria-label="Abrir configuración de cuenta" aria-pressed={settingsOpen} onClick={() => setSettingsOpen(true)}><Settings /><span className="max-w-48 truncate">{user.email}</span></Button><Button variant="ghost" size="sm" className="hover:bg-[#F4FFF4]/10 hover:text-[#F4FFF4]" disabled={loggingOut} onClick={() => void handleLogout()}><LogOut /> Salir</Button></div></header>
+    <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b px-4 print:hidden"><button type="button" aria-label="Ir al inicio" onClick={goHome} className="mr-3 hidden size-6 shrink-0 items-center justify-center text-inherit outline-none focus-visible:outline-2 focus-visible:outline-[#F4FFF4] lg:flex"><span className="sb-workspace-logo" aria-hidden="true" /></button><Menubar className="w-fit border-0 bg-transparent text-inherit shadow-none"><MenubarMenu><MenubarTrigger className="gap-1.5 hover:bg-[#F4FFF4]/10 aria-expanded:bg-[#F4FFF4]/10"><File className="size-4" /> Archivo</MenubarTrigger><MenubarContent><MenubarItem onClick={createDocument}><FilePenLine /> Crear documento</MenubarItem><MenubarItem onClick={() => setDialogOpen(true)}><Folder /> Crear expediente</MenubarItem><MenubarItem onClick={openPdfs}><FileText /> Abrir PDF</MenubarItem><MenubarItem onClick={openArchive}><Upload /> Abrir .abn</MenubarItem><MenubarSeparator /><MenubarItem onClick={saveArchive}><Download /> {active?.kind === "expediente" ? "Guardar expediente como .abn" : "Guardar .abn"}</MenubarItem><MenubarSeparator /><MenubarItem onClick={activateAutosave}><Save /> Activar autoguardado</MenubarItem>{autosaveRef.current && <><MenubarItem onClick={() => void writeAutosave()}><Save /> Guardar ahora</MenubarItem><MenubarItem onClick={deactivateAutosave}><X /> Desactivar autoguardado</MenubarItem></>}</MenubarContent></MenubarMenu></Menubar>{autosaveRef.current && <span className="ml-4 text-xs text-[#F4FFF4]/80" role="status">{autosaveLabel}</span>}<div className="ml-auto flex items-center gap-2 pl-3"><Button variant={settingsOpen ? "secondary" : "ghost"} size="sm" className="hover:bg-[#F4FFF4]/10 hover:text-[#F4FFF4]" aria-pressed={settingsOpen} onClick={() => setSettingsOpen(true)}><Settings /> Configuración</Button></div></header>
     {(workspace.tabs.length > 0 || settingsOpen) && <nav className="fixed inset-x-0 top-12 z-20 flex h-12 border-b bg-muted/40 print:hidden" aria-label="Documentos abiertos"><div className="flex min-w-0 flex-1 items-end overflow-x-auto px-2 pt-2" role="tablist"><div role="tab" aria-selected={!settingsOpen && workspace.activeTabId === null} tabIndex={!settingsOpen && workspace.activeTabId === null ? 0 : -1} onClick={goHome} className={clsx("flex h-9 min-w-44 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-px motion-reduce:transition-none", !settingsOpen && workspace.activeTabId === null ? "bg-background" : "border-transparent text-muted-foreground")}><Home className="size-4 shrink-0 text-[var(--sb-color-text-strong)]" /><span className="min-w-0 flex-1 truncate">Inicio</span></div>{workspace.tabs.map((tab) => (
   <div 
     key={tab.id} 

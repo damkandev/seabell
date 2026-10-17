@@ -15,7 +15,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-    "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "pnpm test:unit && pnpm test:e2e",

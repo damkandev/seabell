@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, test } from "@playwright/test";
 
 test("creates a guided expediente with documents, facts and notes", async ({ page }) => {
   await page.goto("/");

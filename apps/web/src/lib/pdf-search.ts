@@ -1,5 +1,4 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { findArticleMentions, findLawReferences, type LawReference } from "@/lib/law-references";
 
 export type PdfSearchResult = {
   id: string;
@@ -104,45 +103,6 @@ export class PdfSearchIndex {
     const page = this.#pages.get(pageNumber);
     if (!page) return undefined;
     return { text: page.text, sourcePositions: page.sourcePositions };
-  }
-
-  /** References are extracted from text already read for the search index. */
-  getLawReferences(): LawReference[] {
-    const pages = [...this.#pages.entries()];
-    const references = pages.flatMap(([pageNumber, page]) => findLawReferences(page.text, pageNumber));
-    const laws = new Map(references.map((reference) => [`${reference.type}-${reference.number}`, reference]));
-    if (this.#pages.size !== this.#document.numPages) {
-      return references.sort((left, right) => left.pageNumber - right.pageNumber || left.id.localeCompare(right.id));
-    }
-
-    const onlyLaw = laws.size === 1 ? [...laws.values()][0] : undefined;
-    const articleReferences = pages.flatMap(([pageNumber, page]) => {
-      const linkedReferences = references.filter((reference) => reference.pageNumber === pageNumber);
-      return findArticleMentions(page.text)
-        .filter((mention) => !linkedReferences.some((reference) => reference.articleNumber !== undefined &&
-          mention.start >= reference.start - 48 && mention.start <= reference.end + 48,
-        ))
-        .flatMap((mention) => {
-          const precedingLaw = references
-            .filter((reference) => reference.pageNumber < pageNumber || (reference.pageNumber === pageNumber && reference.start < mention.start))
-            .at(-1) ?? onlyLaw;
-          if (!precedingLaw) return [];
-          return [{
-            id: `${pageNumber}-${precedingLaw.type}-${precedingLaw.number}-article-${mention.start}`,
-            pageNumber,
-            type: precedingLaw.type,
-            number: precedingLaw.number,
-            ...(precedingLaw.idNorma ? { idNorma: precedingLaw.idNorma } : {}),
-            articleNumber: mention.articleNumber,
-            label: precedingLaw.label,
-            context: mention.context,
-            start: mention.start,
-            end: mention.end,
-          }];
-        });
-    });
-    return [...references, ...articleReferences]
-      .sort((left, right) => left.pageNumber - right.pageNumber || left.id.localeCompare(right.id));
   }
 
   start(): void {

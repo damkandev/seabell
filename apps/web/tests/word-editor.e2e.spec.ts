@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, test } from "@playwright/test";
 
 test("prepares the document for saving as PDF", async ({ page }) => {
   await page.addInitScript(() => {

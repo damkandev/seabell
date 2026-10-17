@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, CalendarDays, ChevronLeft, ChevronRight, Highlighter, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Highlighter, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PDFDocumentLoadingTask } from "pdfjs-dist";
 import type {
@@ -12,7 +12,6 @@ import type {
 
 import { Button } from "@/components/ui/button";
 import type { ImportedPdf } from "@/lib/pdf-import";
-import type { LawReference } from "@/lib/law-references";
 import { PdfSearchIndex, type PdfSearchResult } from "@/lib/pdf-search";
 import type { PdfSelectionController } from "@/lib/pdf-selection/controller";
 import { DEFAULT_HIGHLIGHT_COLOR } from "@/lib/pdf-selection/types";
@@ -24,7 +23,6 @@ import type {
 } from "@/lib/pdf-selection/types";
 import { HighlightPopover } from "./highlight-popover";
 import { PdfHighlightsPanel } from "./pdf-highlights-panel";
-import { PdfLawsPanel } from "./pdf-laws-panel";
 import { PdfSearchPanel } from "./pdf-search-panel";
 import { PdfTimelinePanel } from "./pdf-timeline-panel";
 import { SelectionPopover } from "./selection-popover";
@@ -49,14 +47,13 @@ type ViewerSession = {
 };
 type PageChangingEvent = { pageNumber: number };
 type ScaleChangingEvent = { scale: number };
-type TextLayerRenderedEvent = { pageNumber: number };
 
 export type PdfViewState = {
   highlights: PdfHighlight[];
   currentPage: number;
   scale: number;
   searchQuery: string;
-  panel: "search" | "highlights" | "laws" | "timeline" | null;
+  panel: "search" | "highlights" | "timeline" | null;
 };
 
 export function PdfViewer({ importedPdf, initialState, onStateChange, highlightColor }: {
@@ -78,14 +75,10 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
   const [highlights, setHighlights] = useState<PdfHighlight[]>(initialState?.highlights ?? []);
   const [highlightsOpen, setHighlightsOpen] = useState(initialState?.panel === "highlights");
   const [searchOpen, setSearchOpen] = useState(initialState?.panel === "search");
-  const [lawsOpen, setLawsOpen] = useState(initialState?.panel === "laws");
   const [timelineOpenState, setTimelineOpenState] = useState(initialState?.panel === "timeline");
-  const [lawReferences, setLawReferences] = useState<LawReference[]>([]);
-  const [activeLawReference, setActiveLawReference] = useState<LawReference | null>(null);
   const [searchQuery, setSearchQuery] = useState(initialState?.searchQuery ?? "");
   const [, setSearchRevision] = useState(0);
   const searchIndexRef = useRef<PdfSearchIndex | null>(null);
-  const lawReferencesRef = useRef<LawReference[]>([]);
   // Background indexing schedules a render whenever more pages become searchable.
   const searchResults = searchIndexRef.current?.search(searchQuery) ?? [];
   const initialStateRef = useRef(initialState);
@@ -98,14 +91,14 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
     currentPage,
     scale,
     searchQuery,
-    panel: searchOpen ? "search" : highlightsOpen ? "highlights" : lawsOpen ? "laws" : timelineOpenState ? "timeline" : null,
+    panel: searchOpen ? "search" : highlightsOpen ? "highlights" : timelineOpenState ? "timeline" : null,
   });
   viewStateRef.current = {
     highlights,
     currentPage,
     scale,
     searchQuery,
-    panel: searchOpen ? "search" : highlightsOpen ? "highlights" : lawsOpen ? "laws" : timelineOpenState ? "timeline" : null,
+    panel: searchOpen ? "search" : highlightsOpen ? "highlights" : timelineOpenState ? "timeline" : null,
   };
 
   const saveViewState = useCallback((next: Partial<PdfViewState>) => {
@@ -120,9 +113,6 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
     setHighlights(initialStateRef.current?.highlights ?? []);
     setHighlightsOpen(initialStateRef.current?.panel === "highlights");
     setSearchOpen(initialStateRef.current?.panel === "search");
-    setLawReferences([]);
-    lawReferencesRef.current = [];
-    setActiveLawReference(null);
 
     let active = true;
     let loadingTask: PDFDocumentLoadingTask | null = null;
@@ -183,14 +173,9 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
         return;
       }
       openingPhase = "viewer";
-      let decorateLawReferences: (pageNumber: number) => void = () => {};
       const searchIndex = new PdfSearchIndex(pdfDocument, () => {
         if (!active) return;
         setSearchRevision((revision) => revision + 1);
-        const references = searchIndex.getLawReferences();
-        lawReferencesRef.current = references;
-        setLawReferences(references);
-        for (const reference of references) decorateLawReferences(reference.pageNumber);
       });
       searchIndexRef.current = searchIndex;
 
@@ -228,54 +213,9 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
       };
       const handlePageChanging = ({ pageNumber }: PageChangingEvent) => { setCurrentPage(pageNumber); saveViewState({ currentPage: pageNumber }); };
       const handleScaleChanging = ({ scale: nextScale }: ScaleChangingEvent) => { setScale(nextScale); saveViewState({ scale: nextScale }); };
-      decorateLawReferences = (pageNumber) => {
-        const indexedPage = searchIndex.getPageText(pageNumber);
-        const page = viewerElement.querySelector<HTMLElement>(`.page[data-page-number="${pageNumber}"]`);
-        if (!indexedPage || !page) return;
-        const references = lawReferencesRef.current.filter((reference) => reference.pageNumber === pageNumber);
-        if (!references.length) return;
-
-        page.querySelector(".pdfLawLinks")?.remove();
-        const sourceSpans = [...page.querySelectorAll<HTMLSpanElement>(".textLayer > span")];
-        const layer = document.createElement("div");
-        layer.className = "pdfLawLinks";
-        layer.setAttribute("aria-label", "Leyes citadas");
-        const pageRect = page.getBoundingClientRect();
-        indexedPage.sourcePositions.forEach((position, index) => {
-          const span = sourceSpans[index];
-          const textNode = span?.firstChild;
-          if (!span || !textNode || textNode.nodeType !== Node.TEXT_NODE) return;
-          for (const reference of references) {
-            const start = Math.max(reference.start, position.start);
-            const end = Math.min(reference.end, position.end);
-            if (start >= end) continue;
-            const range = document.createRange();
-            range.setStart(textNode, start - position.start);
-            range.setEnd(textNode, end - position.start);
-            const rectangles = [...range.getClientRects()];
-            range.detach();
-            rectangles.forEach((rectangle, rectangleIndex) => {
-              const link = document.createElement("button");
-              link.type = "button";
-              link.className = "pdfLawLink";
-              link.dataset.lawReference = reference.id;
-              link.setAttribute("aria-label", `Consultar ${reference.label}`);
-              link.tabIndex = rectangleIndex === 0 ? 0 : -1;
-              link.style.left = `${rectangle.left - pageRect.left}px`;
-              link.style.top = `${rectangle.top - pageRect.top}px`;
-              link.style.width = `${rectangle.width}px`;
-              link.style.height = `${rectangle.height}px`;
-              layer.append(link);
-            });
-          }
-        });
-        if (layer.childElementCount) page.append(layer);
-      };
-      const handleTextLayerRendered = ({ pageNumber }: TextLayerRenderedEvent) => decorateLawReferences(pageNumber);
       eventBus.on("pagesinit", handlePagesInit);
       eventBus.on("pagechanging", handlePageChanging);
       eventBus.on("scalechanging", handleScaleChanging);
-      eventBus.on("textlayerrendered", handleTextLayerRendered);
 
       const permissions = await pdfDocument.getPermissions();
       const storageKey = `seabell_highlights_${importedPdf.file.name}_${importedPdf.file.size}`;
@@ -335,7 +275,6 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
           eventBus.off("pagesinit", handlePagesInit);
           eventBus.off("pagechanging", handlePageChanging);
           eventBus.off("scalechanging", handleScaleChanging);
-          eventBus.off("textlayerrendered", handleTextLayerRendered);
         },
         eventBus,
         findController,
@@ -384,34 +323,6 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
   }, [importedPdf, saveViewState]);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const openReference = (target: EventTarget | null) => {
-      const link = target instanceof Element ? target.closest<HTMLElement>("[data-law-reference]") : null;
-      const reference = lawReferencesRef.current.find((item) => item.id === link?.dataset.lawReference);
-      if (!reference) return false;
-      setActiveLawReference(reference);
-      setLawsOpen(true);
-      setSearchOpen(false);
-      setHighlightsOpen(false);
-      setTimelineOpenState(false);
-      return true;
-    };
-    const handleClick = (event: MouseEvent) => {
-      if (openReference(event.target)) event.preventDefault();
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.key === "Enter" || event.key === " ") && openReference(event.target)) event.preventDefault();
-    };
-    container.addEventListener("click", handleClick);
-    container.addEventListener("keydown", handleKeyDown);
-    return () => {
-      container.removeEventListener("click", handleClick);
-      container.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  useEffect(() => {
     const findController = sessionRef.current?.findController;
     if (!findController) return;
     sessionRef.current?.eventBus.dispatch("find", {
@@ -427,7 +338,6 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
   const setPanel = (panel: PdfViewState["panel"]) => {
     setSearchOpen(panel === "search");
     setHighlightsOpen(panel === "highlights");
-    setLawsOpen(panel === "laws");
     setTimelineOpenState(panel === "timeline");
     saveViewState({ panel });
   };
@@ -514,7 +424,7 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
     setHighlightPopover(null);
   }, []);
 
-  const sidePanelOpen = searchOpen || highlightsOpen || lawsOpen || timelineOpenState;
+  const sidePanelOpen = searchOpen || highlightsOpen || timelineOpenState;
 
   return (
     <section className="sb-pdf-viewer relative flex h-full flex-col bg-muted/30">
@@ -532,7 +442,6 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
           <span className="mx-1 h-5 w-px bg-border" />
           <Button variant={searchOpen ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(searchOpen ? null : "search")} aria-label="Buscar en el PDF" aria-pressed={searchOpen}><Search /></Button>
           <Button variant={highlightsOpen ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(highlightsOpen ? null : "highlights")} aria-label="Ver destacados" aria-pressed={highlightsOpen}><Highlighter /></Button>
-          <Button variant={lawsOpen ? "secondary" : "ghost"} size="icon" onClick={() => { setPanel(lawsOpen ? null : "laws"); if (lawsOpen) setActiveLawReference(null); }} aria-label="Ver leyes citadas" aria-pressed={lawsOpen}><BookOpen /></Button>
           <Button variant={timelineOpenState ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(timelineOpenState ? null : "timeline")} aria-label="Cronología del documento" aria-pressed={timelineOpenState}><CalendarDays /></Button>
         </div>
       </div>
@@ -612,13 +521,6 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
         onClose={() => setPanel(null)}
         onHighlightClick={openHighlight}
         onRemove={removeHighlight}
-      />
-      <PdfLawsPanel
-        open={lawsOpen}
-        references={lawReferences}
-        activeReference={activeLawReference}
-        onClose={() => { setPanel(null); setActiveLawReference(null); }}
-        onReferenceClick={setActiveLawReference}
       />
       <PdfTimelinePanel
         open={timelineOpenState}

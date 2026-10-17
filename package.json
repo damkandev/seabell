@@ -13,9 +13,9 @@
   },
   "homepage": "https://github.com/damkandev/seabell#readme",
   "scripts": {
-    "dev": "pnpm --parallel --filter @seabell/web --filter @seabell/api dev",
-    "build": "pnpm --parallel --filter @seabell/web --filter @seabell/api build",
-    "start": "pnpm --filter @seabell/web start",
+    "dev": "pnpm --filter @seabell/desktop dev",
+    "build": "pnpm --filter @seabell/web build",
+    "build:desktop": "pnpm --filter @seabell/desktop build",
     "db:generate": "pnpm --filter @seabell/api db:generate",
     "db:migrate": "pnpm --filter @seabell/api db:migrate",
     "lint": "pnpm --filter @seabell/web lint",

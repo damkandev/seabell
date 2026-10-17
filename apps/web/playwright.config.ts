@@ -11,10 +11,11 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "PORT=3200 pnpm start",
+    // El export estático se sirve tal cual lo empaqueta Tauri.
+    command: "pnpm build && python3 -m http.server 3200 --bind 127.0.0.1 --directory out",
     url: "http://127.0.0.1:3200",
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 240_000,
   },
   projects: [
     {

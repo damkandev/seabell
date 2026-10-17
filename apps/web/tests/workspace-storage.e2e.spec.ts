@@ -1,7 +1,8 @@
-import { expect, test } from "./fixtures";
+import { expect, test } from "@playwright/test";
 
 test("migrates an existing workspace database without its index", async ({ page }) => {
-  await page.goto("/api/laws/test/0", { waitUntil: "commit" });
+  // Una página sin la app, para preparar IndexedDB antes de que el workspace lo abra.
+  await page.goto("/404.html", { waitUntil: "commit" });
   await page.evaluate(() => new Promise<void>((resolve, reject) => {
     const request = indexedDB.open("seabell-workspaces", 1);
     request.onupgradeneeded = () => request.result.createObjectStore("documents", { keyPath: "id" });

@@ -4,7 +4,7 @@
 [![Licencia: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/licencia-PolyForm--Noncommercial--1.0.0-orange.svg)](LICENSE)
 [![GitHub Project](https://img.shields.io/badge/GitHub%20Project-Seabell-2671E5?logo=github)](https://github.com/users/damkandev/projects/1)
 
-Seabell es un espacio de trabajo local-first para revisar, buscar y anotar documentos PDF. Está pensado para trabajar con expedientes y mantener los documentos en el navegador; el acceso requiere una cuenta, pero los documentos no se suben al servidor.
+Seabell es una aplicación de escritorio local-first para revisar, buscar y anotar documentos PDF, pensada para procuradores que trabajan con expedientes. No requiere cuenta y los documentos nunca salen del equipo.
 
 > El proyecto está en desarrollo temprano (`0.1.0`). La estructura de los archivos `.abn` puede cambiar entre versiones.
 
@@ -13,74 +13,48 @@ Seabell es un espacio de trabajo local-first para revisar, buscar y anotar docum
 - Importación y lectura de PDFs locales.
 - Búsqueda de texto, selección, resaltados y notas.
 - Organización de documentos en expedientes y carpetas.
-- Persistencia local en `localStorage` e IndexedDB.
+- Persistencia local en el almacenamiento del webview (`localStorage` e IndexedDB).
 - Exportación e importación de espacios de trabajo portables `.abn`.
-- Detección de referencias a leyes y decretos chilenos.
-- Consulta opcional de la norma citada desde fuentes externas.
 
 ## Privacidad y datos
 
-Los PDFs permanecen en el navegador y no se suben a un servidor de Seabell. La autenticación usa una cuenta con email, contraseña derivada y sesión mediante cookie HttpOnly; no incluye analítica. La cuenta no sincroniza el contenido local del workspace.
-
-La consulta de una referencia legal sí usa servicios externos y envía el tipo y número de la norma. Las fuentes utilizadas son [LeyChile](https://www.bcn.cl/leychile/) y [leyes.pisanvs.cl](https://leyes.pisanvs.cl/). Exporta un archivo `.abn` si necesitas conservar o compartir un espacio de trabajo: borrar los datos del navegador puede eliminar los PDFs guardados localmente.
-
-## API privada y proyecto LeyChile
-
-Seabell utiliza una API privada proporcionada por el proyecto open source [ley-chile](https://github.com/pisanvs/ley-chile), disponible a través de [leyes.pisanvs.cl](https://leyes.pisanvs.cl/). El acceso privado está autorizado únicamente para KeroKero.cl, que participa como sponsor del proyecto; las credenciales y el acceso no forman parte de este repositorio.
-
-Para revisar la implementación, reportar problemas o consultar el acceso al servicio, revisa el repositorio de [ley-chile](https://github.com/pisanvs/ley-chile) o contacta a su propietario, [Max Morel](https://github.com/pisanvs).
+Seabell funciona sin conexión: no tiene cuenta, no incluye analítica y no envía documentos a ningún servidor. Exporta un archivo `.abn` si necesitas conservar o compartir un espacio de trabajo: borrar los datos de la aplicación elimina los PDFs guardados localmente.
 
 ## Requisitos
 
 - Node.js 20 o superior.
 - pnpm 10 (la versión está fijada en `package.json`).
-- Docker Desktop con Docker Compose.
+- Rust estable y los [requisitos de Tauri](https://tauri.app/start/prerequisites/) para tu sistema (en macOS, Xcode Command Line Tools).
 
 ## Desarrollo local
 
 ```bash
 pnpm install
-./start.sh
+pnpm dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000). La API Hono queda disponible en
-[http://localhost:8787/health](http://localhost:8787/health).
-
-`start.sh` levanta PostgreSQL en Docker, aplica las migraciones de Drizzle y arranca web + API. PostgreSQL usa el puerto local `5433` para evitar conflictos con otra instalación.
-
-Para detener los servicios:
-
-```bash
-docker compose down
-```
-
-Los datos quedan en el volumen `seabell-postgres-data`.
+`pnpm dev` levanta el frontend de Next.js y abre la ventana de escritorio de Tauri con recarga en caliente.
 
 Comandos disponibles:
 
 ```bash
-pnpm lint       # ESLint
-pnpm typecheck  # TypeScript sin emitir archivos
-pnpm test:unit  # pruebas unitarias
-pnpm test:e2e   # pruebas end-to-end en Chromium, Firefox y WebKit
-pnpm build      # build de producción
-pnpm start      # servidor de producción
+pnpm lint           # ESLint
+pnpm typecheck      # TypeScript sin emitir archivos
+pnpm test:unit      # pruebas unitarias
+pnpm test:e2e       # pruebas end-to-end en Chromium, Firefox y WebKit sobre el export estático
+pnpm build          # export estático del frontend en apps/web/out
+pnpm build:desktop  # instalador de la app de escritorio
 ```
 
 ## Arquitectura
 
-- `apps/web/`: aplicación web Next.js, sus rutas API, componentes y pruebas.
-- `apps/api/`: backend independiente en Hono para endpoints que necesiten un runtime o despliegue separado.
+- `apps/web/`: frontend Next.js compilado como export estático (`output: "export"`), sin rutas de servidor.
+- `apps/desktop/`: proyecto Tauri 2 que empaqueta `apps/web/out` como aplicación de escritorio.
+- `apps/api/`: backend Hono heredado de la versión web; la app de escritorio no lo usa.
 - `scripts/legacy/`: utilitarios históricos de desarrollo, fuera del runtime.
 - `package.json` y `pnpm-workspace.yaml`: comandos y configuración del monorepo.
 
-Las rutas API pequeñas existentes siguen en `apps/web/src/app/api/`; los nuevos endpoints independientes pueden vivir en `apps/api/src/`.
-
-La API usa Drizzle ORM para PostgreSQL. Define `DATABASE_URL` localmente o usa la variable que Railway genera al conectar su servicio PostgreSQL. Genera y aplica migraciones con `pnpm db:generate` y `pnpm db:migrate`.
-
-La autenticación inicial expone `POST /auth/register`, `POST /auth/login`, `POST /auth/logout` y `GET /auth/me`. Las sesiones usan una cookie HttpOnly y las contraseñas se derivan con `crypto.scrypt`.
-
-La interfaz usa Server Components cuando es posible; la lectura y edición de PDFs necesitan APIs del navegador y viven en componentes cliente.
+La lectura y edición de PDFs usan APIs del navegador y viven en componentes cliente que corren dentro del webview de Tauri.
 
 ## Contribuir
 
@@ -88,7 +62,7 @@ Consulta [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir un pull request. Para
 
 ## Aviso legal
 
-Seabell es una herramienta de organización y consulta documental. El contenido legal se obtiene de servicios externos y puede estar incompleto o desactualizado; no constituye asesoría jurídica.
+Seabell es una herramienta de organización y consulta documental; no constituye asesoría jurídica.
 
 ## Licencia de uso
 
