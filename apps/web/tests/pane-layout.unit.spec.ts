@@ -37,6 +37,20 @@ test("drops empty columns when a pane closes", () => {
   expect(withoutPane(layout(), "a").map((col) => col.key)).toEqual(["c2"]);
 });
 
+test("closing a pane gives its space back to the rest", () => {
+  // Los pesos son flex-grow: si suman menos que la cantidad de elementos queda un hueco.
+  const fills = (sizes: number[]) => expect(sizes.reduce((sum, n) => sum + n, 0)).toBeCloseTo(sizes.length, 5);
+  const split = insertPane(insertPane(layout(), newPane("D"), "a", "right"), newPane("E"), "b", "bottom");
+  const closed = withoutPane(withoutPane(split, "a"), "b");
+  fills(closed.map((col) => col.size));
+  closed.forEach((col) => fills(col.panes.map((p) => p.size)));
+
+  // Dividir un único panel deja dos columnas de 0,5; al cerrar una, la otra vuelve a 1.
+  const halves = insertPane([{ key: "c1", size: 1, panes: [{ key: "a", doc: "A", size: 1 }] }], newPane("D"), "a", "right");
+  expect(withoutPane(halves, "a")[0].size).toBe(1);
+  expect(restoreLayout({ cols: halves, focus: "a" }, ["D"]).cols[0].size).toBe(1);
+});
+
 test("resizes a pair without crossing the minimum", () => {
   expect(resizePair([1, 1, 1], 1, 0.5, 0.2)).toEqual([1.5, 0.5, 1]);
   expect(resizePair([1, 1], 1, 5, 0.2)).toEqual([1.8, 0.2].map((n) => expect.closeTo(n, 5)));

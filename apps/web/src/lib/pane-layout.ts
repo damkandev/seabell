@@ -23,10 +23,22 @@ export function zoneAt(x: number, y: number): DropZone {
   return distance < 0.25 ? zone : "center";
 }
 
+/**
+ * Reescala los pesos para que promedien 1. Los tamaños son `flex-grow`, y si suman menos de 1
+ * el navegador reparte solo esa fracción del espacio libre y deja un hueco.
+ */
+function normalized(cols: Column[]): Column[] {
+  const scale = <T extends { size: number }>(items: T[]) => {
+    const total = items.reduce((sum, item) => sum + item.size, 0);
+    return items.map((item) => ({ ...item, size: total > 0 ? (item.size * items.length) / total : 1 }));
+  };
+  return scale(cols.map((col) => ({ ...col, panes: scale(col.panes) })));
+}
+
 export function withoutPane(cols: Column[], key: string): Column[] {
-  return cols
+  return normalized(cols
     .map((col) => ({ ...col, panes: col.panes.filter((pane) => pane.key !== key) }))
-    .filter((col) => col.panes.length);
+    .filter((col) => col.panes.length));
 }
 
 /** Inserta `pane` junto al panel `targetKey`, partiendo a la mitad el espacio del destino. */
@@ -75,9 +87,9 @@ export function resizePair(sizes: number[], i: number, delta: number, min: numbe
 /** Sanea un layout guardado contra los documentos existentes y abre `openDoc` si se pide. */
 export function restoreLayout(saved: PaneLayout | undefined, docIds: string[], openDoc?: string): PaneLayout {
   const available = new Set(docIds);
-  const cols = (saved?.cols ?? [])
+  const cols = normalized((saved?.cols ?? [])
     .map((col) => ({ ...col, panes: col.panes.filter((pane) => available.has(pane.doc)) }))
-    .filter((col) => col.panes.length);
+    .filter((col) => col.panes.length));
   const first = openDoc && available.has(openDoc) ? openDoc : docIds[0];
   if (!cols.length) return first ? openIn({ cols: [newColumn([newPane(first)])], focus: null }, first) : { cols: [], focus: null };
   const layout = { cols, focus: allPanes(cols).some((p) => p.key === saved?.focus) ? saved!.focus : allPanes(cols)[0].key };
