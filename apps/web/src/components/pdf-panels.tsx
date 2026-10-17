@@ -26,11 +26,11 @@ export function PdfAnnotations({ title, highlights, editingId, onEdit, onOpen, o
   onNote: (id: string, note: string) => void;
 }) {
   return (
-    <section aria-label="Anotaciones del documento" className="flex flex-col gap-2">
+    <section aria-label="Anotaciones del documento" className="sb-enter flex flex-col gap-2">
       <h3 className="m-0 px-0.5 pb-1 font-serif text-sm text-ink-2">{title}</h3>
       {highlights.length === 0 && <p className={empty}>Selecciona texto en el documento para resaltarlo o anotarlo.</p>}
       {highlights.map((highlight) => (
-        <article key={highlight.id} className="card">
+        <article key={highlight.id} className="card sb-item">
           <button type="button" className="block w-full cursor-pointer px-3.5 pt-3 pb-1 text-left" onClick={() => onOpen(highlight)}>
             <span className="font-serif text-sm leading-[1.55]">
               <span className="marker" style={highlight.color ? { "--mark": highlight.color } as React.CSSProperties : undefined}>{highlight.text}</span>
@@ -77,7 +77,7 @@ export function PdfDates({ searchIndex, indexedPages, pageCount, onOpen }: {
   const indexing = indexedPages < pageCount;
 
   return (
-    <section aria-label="Fechas del documento">
+    <section aria-label="Fechas del documento" className="sb-enter">
       {indexing && <p className="m-0 mb-3 px-0.5 font-mono text-[11px] text-ink-3" role="status">Analizando {indexedPages} de {pageCount} páginas…</p>}
       {!indexing && entries.length === 0 && <p className={empty}>No se encontraron fechas en este documento.</p>}
       <ol className="m-0 mt-1 list-none border-l border-line-2 p-0 pl-3.5">

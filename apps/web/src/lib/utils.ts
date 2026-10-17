@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from "clsx"
+import { flushSync } from "react-dom"
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
@@ -29,4 +30,14 @@ export function createLocalId(): string {
   bytes[8] = (bytes[8] & 0x3f) | 0x80
   const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+/**
+ * Aplica `update` dentro de una View Transition nativa para que lo que se
+ * elimina se desvanezca y el resto se reacomode. Sin soporte o con movimiento
+ * reducido, aplica el cambio directamente.
+ */
+export function withViewTransition(update: () => void): void {
+  if (!("startViewTransition" in document) || matchMedia("(prefers-reduced-motion: reduce)").matches) return update()
+  document.startViewTransition(() => flushSync(update))
 }

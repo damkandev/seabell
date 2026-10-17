@@ -6,7 +6,7 @@ import { exportAbn, importAbn, type AbnSerializableValue } from "@/lib/abn";
 import { addPdfNode, collectDocumentIds, createExpedienteState, removePdfNode, type ExpedienteNode, type ExpedienteState } from "@/lib/expediente";
 import { importLocalPdf, type ImportedPdf } from "@/lib/pdf-import";
 import { DEFAULT_HIGHLIGHT_COLOR, isHighlightColor } from "@/lib/pdf-selection/types";
-import { createLocalId } from "@/lib/utils";
+import { createLocalId, withViewTransition } from "@/lib/utils";
 import { createWordDocument, isWordDocument, type WordDocument } from "@/lib/word-document";
 import { deleteWorkspace, getWorkspace, saveWorkspace, WORKSPACE_STORAGE_VERSION, type RestoredWorkspaceDocument } from "@/lib/workspace-storage";
 import { CommandPalette, type PaletteItem } from "./command-palette";
@@ -368,7 +368,7 @@ export function SeabellApp() {
         />
       )}
       {error && screen.kind !== "inicio" && (
-        <p role="alert" className="fixed bottom-4 left-1/2 z-50 m-0 -translate-x-1/2 rounded-[3px] bg-ink px-3 py-2 text-surface">
+        <p role="alert" className="sb-pop fixed bottom-4 left-1/2 z-50 m-0 -translate-x-1/2 rounded-[3px] bg-ink px-3 py-2 text-surface">
           {error} <button type="button" className="ml-2 cursor-pointer underline" onClick={() => setError(null)}>Cerrar</button>
         </p>
       )}
@@ -378,7 +378,7 @@ export function SeabellApp() {
         title="Eliminar expediente"
         confirmLabel="Eliminar"
         onClose={() => setToDelete(null)}
-        onConfirm={() => { if (toDelete) deleteExpediente(toDelete); }}
+        onConfirm={() => { if (toDelete) withViewTransition(() => deleteExpediente(toDelete)); }}
       >
         Se eliminará «{toDelete && expedientes.get(toDelete)?.name}» y, de este equipo, los PDFs y resaltes que no estén en otro expediente.
       </ConfirmDialog>

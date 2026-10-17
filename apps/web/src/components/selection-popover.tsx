@@ -4,8 +4,8 @@ import { useState } from "react";
 
 import type { SelectionPopoverState } from "@/lib/pdf-selection/types";
 
-export const popClass = "pointer-events-auto absolute z-30 flex items-center gap-0.5 rounded-[4px] bg-ink p-[3px] font-sans text-[13px] text-surface shadow-[0_8px_24px_-8px_rgb(21_23_26/50%)] select-none";
-export const popButton = "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-[3px] px-2.5 hover:bg-[#2b2f35]";
+export const popClass = "sb-pop pointer-events-auto absolute z-30 flex items-center gap-0.5 rounded-[4px] bg-ink p-[3px] font-sans text-[13px] text-surface shadow-[0_8px_24px_-8px_rgb(21_23_26/50%)] select-none";
+export const popButton = "press inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-[3px] px-2.5 hover:bg-[#2b2f35]";
 
 export function SelectionPopover({ state, onCopy, onHighlight, onNote }: {
   state: NonNullable<SelectionPopoverState>;

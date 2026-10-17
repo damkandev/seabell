@@ -39,7 +39,7 @@ export function NewExpedienteDialog({ open, onClose, onConfirm }: {
         </label>
         <div className="flex justify-end gap-2">
           <button type="button" className="ib px-3" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="h-8 cursor-pointer rounded-[3px] bg-ink px-3 text-surface shadow-[inset_0_-2px_0_rgb(0_0_0/35%)] hover:bg-[#2b2f35]">Crear</button>
+          <button type="submit" className="press h-8 cursor-pointer rounded-[3px] bg-ink px-3 text-surface shadow-[inset_0_-2px_0_rgb(0_0_0/35%)] hover:bg-[#2b2f35]">Crear</button>
         </div>
       </form>
     </dialog>
@@ -64,7 +64,7 @@ export function ConfirmDialog({ open, title, children, confirmLabel, onClose, on
         <p className="m-0 leading-normal text-ink-2">{children}</p>
         <div className="flex justify-end gap-2">
           <button type="button" className="ib px-3" autoFocus onClick={onClose}>Cancelar</button>
-          <button type="submit" className="h-8 cursor-pointer rounded-[3px] bg-destructive px-3 text-surface hover:opacity-90">{confirmLabel}</button>
+          <button type="submit" className="press h-8 cursor-pointer rounded-[3px] bg-destructive px-3 text-surface hover:opacity-90">{confirmLabel}</button>
         </div>
       </form>
     </dialog>

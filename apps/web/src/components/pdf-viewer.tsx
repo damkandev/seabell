@@ -12,6 +12,7 @@ import type {
 
 import type { ImportedPdf } from "@/lib/pdf-import";
 import { loadPdfJs } from "@/lib/pdfjs";
+import { withViewTransition } from "@/lib/utils";
 import { PdfSearchIndex } from "@/lib/pdf-search";
 import type { PdfSelectionController } from "@/lib/pdf-selection/controller";
 import { DEFAULT_HIGHLIGHT_COLOR } from "@/lib/pdf-selection/types";
@@ -372,10 +373,10 @@ export function PdfViewer({ importedPdf, name, initialState, onStateChange, high
     scrollTo(Math.min(highlight.range.anchor.pageNumber, highlight.range.focus.pageNumber));
   }, [scrollTo]);
 
-  const removeHighlight = useCallback((id: string) => {
+  const removeHighlight = useCallback((id: string) => withViewTransition(() => {
     sessionRef.current?.selectionController.removeHighlight(id);
     setHighlightPopover(null);
-  }, []);
+  }), []);
 
   const searchIndex = searchIndexRef.current;
 

@@ -7,7 +7,7 @@ import { allPanes, insertPane, MAX_PANES, movePane, newPane, openIn, resizePair,
 import type { ImportedPdf } from "@/lib/pdf-import";
 import { loadPdfJs } from "@/lib/pdfjs";
 import { PdfSearchIndex, type PdfSearchResult } from "@/lib/pdf-search";
-import { createLocalId } from "@/lib/utils";
+import { createLocalId, withViewTransition } from "@/lib/utils";
 import { Icon } from "./icon";
 import { ConfirmDialog } from "./new-expediente-dialog";
 import { PdfViewer, type PanelTab, type PdfReveal, type PdfViewState } from "./pdf-viewer";
@@ -149,7 +149,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
         const isOpen = !collapsed.has(node.id);
         const count = pdfNodes(node.children).length;
         return (
-          <li key={node.id} onDragOver={acceptsTreeDrop} onDrop={(event) => dropOnFolder(event, node.id)}>
+          <li key={node.id} className="sb-item" onDragOver={acceptsTreeDrop} onDrop={(event) => dropOnFolder(event, node.id)}>
             {editingFolder === node.id ? (
               <div className="node h-[34px] bg-paper shadow-[inset_0_0_0_1px_var(--ink)]" style={indent}>
                 <Icon name="folder" strokeWidth={1.75} />
@@ -185,7 +185,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
       const isFocused = focused?.doc === doc;
       const isOpen = panes.some((pane) => pane.doc === doc);
       return (
-        <li key={node.id} className="group relative" draggable onDragStart={(event) => {
+        <li key={node.id} className="sb-item group relative" draggable onDragStart={(event) => {
           event.dataTransfer.setData(DOC_TYPE, JSON.stringify({ doc, node: node.id }));
           event.dataTransfer.effectAllowed = "copyMove";
         }}>
@@ -338,7 +338,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
                       {pi > 0 && divider(pane.key, "y", col.panes.map((p) => p.size), pi, withRowSizes(ci))}
                       <section
                         aria-label={docName(pane.doc)}
-                        className={`relative flex min-h-[140px] flex-col transition-opacity duration-100 ${moving === pane.key ? "opacity-45" : ""}`}
+                        className={`sb-enter relative flex min-h-[140px] flex-col transition-opacity duration-100 ${moving === pane.key ? "opacity-45" : ""}`}
                         style={{ flex: `${pane.size} 1 0` }}
                         onPointerDownCapture={() => focusPane(pane.key)}
                         onDragOver={(event) => {
@@ -399,7 +399,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
       </div>
 
       {panelOpen && (
-        <aside aria-label="Panel del documento" className="flex w-[320px] flex-none flex-col border-l border-line bg-surface">
+        <aside aria-label="Panel del documento" className="sb-enter flex w-[320px] flex-none flex-col border-l border-line bg-surface">
           <div className="titlebar flex items-center border-b border-line px-3">
             {searching ? (
               <>
@@ -408,7 +408,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
                 <button type="button" className="ib" aria-label="Cerrar búsqueda" onClick={() => setQuery("")}><Icon name="close" /></button>
               </>
             ) : (
-              <div role="tablist" aria-label="Panel" className="grid flex-1 grid-cols-2 gap-0.5 rounded-[4px] bg-surface-3 p-[3px]">
+              <div role="tablist" aria-label="Panel" className="sb-tabs grid flex-1 grid-cols-2 gap-0.5 rounded-[4px] bg-surface-3 p-[3px]">
                 {([["anot", "Anotaciones"], ["fechas", "Fechas"]] as const).map(([id, label]) => (
                   <button
                     key={id}
@@ -416,7 +416,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
                     role="tab"
                     aria-selected={tab === id}
                     onClick={() => setTab(id)}
-                    className="h-7 cursor-pointer rounded-[3px] text-ink-2 transition-colors duration-75 hover:text-ink aria-selected:bg-paper aria-selected:text-ink aria-selected:shadow-[0_0_0_1px_var(--line)]"
+                    className="h-7 cursor-pointer rounded-[3px] text-ink-2 transition-colors duration-75 hover:text-ink aria-selected:text-ink"
                   >
                     {label}
                   </button>
@@ -428,7 +428,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
             {searching ? (
               <>
                 {results?.map(({ doc, results: hits }) => (
-                  <section key={doc.id} aria-label={`Resultados en ${docName(doc.id)}`} className="pb-1.5">
+                  <section key={doc.id} aria-label={`Resultados en ${docName(doc.id)}`} className="sb-enter pb-1.5">
                     <div className="flex items-baseline gap-2 px-2.5 pt-1.5 pb-1">
                       <h3 className="m-0 flex-1 font-sans text-[13px] font-medium">{docName(doc.id)}</h3>
                       <span className="font-mono text-[11px] text-ink-3">{hits.length}</span>
@@ -453,7 +453,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
         title="Quitar documento"
         confirmLabel="Quitar"
         onClose={() => setRemoving(null)}
-        onConfirm={() => { if (removing) removeDocument(removing); }}
+        onConfirm={() => { if (removing) withViewTransition(() => removeDocument(removing)); }}
       >
         Se quitará «{removing?.name}» de «{state.name}». Si no está en otro expediente, se borrarán de este equipo el PDF y sus resaltes.
       </ConfirmDialog>
