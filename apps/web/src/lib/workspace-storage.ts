@@ -246,9 +246,12 @@ async function saveWorkspaceNow<T extends SerializableWorkspace>(
     const transaction = database.transaction(BLOB_STORE, "readwrite");
     const store = transaction.objectStore(BLOB_STORE);
     const index = store.index("workspaceKey");
-    const oldIds = await requestResult(index.getAllKeys(IDBKeyRange.only(key)));
-    oldIds.forEach((id) => store.delete(id));
-    documents.forEach((document) => store.put({ id: `${key}:${document.id}`, workspaceKey: key, blob: blobFor(document) } satisfies BlobRecord));
+    // Los ids derivan del contenido: un id ya guardado no se reescribe. Borrar y volver a
+    // guardar el mismo Blob restaurado desde IndexedDB lo deja inaccesible en WebKit.
+    const wanted = new Map(documents.map((document) => [`${key}:${document.id}`, document]));
+    const oldIds = new Set(await requestResult(index.getAllKeys(IDBKeyRange.only(key))));
+    oldIds.forEach((id) => { if (!wanted.has(id as string)) store.delete(id); });
+    wanted.forEach((document, id) => { if (!oldIds.has(id)) store.put({ id, workspaceKey: key, blob: blobFor(document) } satisfies BlobRecord); });
     await transactionDone(transaction);
   } catch (cause) {
     throw new WorkspaceStorageError("write-failed", "Se guardó el manifiesto en localStorage, pero no se pudieron guardar los documentos en IndexedDB.", { cause });

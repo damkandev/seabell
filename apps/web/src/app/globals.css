@@ -125,6 +125,8 @@
   button, input, textarea, select { font-family: inherit; }
   h1, h2, h3 { font-family: var(--font-serif); font-weight: 400; }
   kbd { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+  input[type="number"] { appearance: textfield; }
+  input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   :focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 }
 

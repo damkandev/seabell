@@ -99,3 +99,17 @@ test("shows the opened documents on Inicio", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.getByRole("region", { name: "demanda", exact: true })).toBeVisible();
 });
+
+test("keeps the PDFs after reopening the app twice", async ({ page, browserName }) => {
+  // El contexto efímero de WebKit en Playwright no guarda Blobs en IndexedDB.
+  test.skip(browserName === "webkit", "WebKit efímero no persiste Blobs en IndexedDB");
+  await createExpedienteWithPdfs(page);
+  for (let reload = 0; reload < 2; reload++) {
+    // Espera a que el guardado agrupado termine de escribir los PDFs antes de recargar.
+    await page.waitForTimeout(1500);
+    await page.reload();
+    await page.getByRole("button", { name: "Rol C-1-2026" }).first().click();
+    await expect(page.locator(".textLayer span").first()).toBeVisible();
+  }
+  await expect(page.getByText("no pudieron restaurarse")).toHaveCount(0);
+});

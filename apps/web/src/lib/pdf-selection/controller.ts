@@ -373,8 +373,9 @@ export class PdfSelectionController {
         if (!this.#abortController.signal.aborted) this.#pageModels.set(pageNumber, model);
         return model;
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
         if (!this.#abortController.signal.aborted) {
+          console.warn(`No se pudo preparar el texto de la página ${pageNumber}.`, cause);
           this.#onStatus({ kind: "error", message: "No se pudo preparar el texto del PDF." });
         }
         return null;
