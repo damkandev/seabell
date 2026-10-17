@@ -1,76 +1,42 @@
 "use client";
 
-import { Check, Copy, Highlighter } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import type { SelectionPopoverState } from "@/lib/pdf-selection/types";
 
-type SelectionPopoverProps = {
+export const popClass = "pointer-events-auto absolute z-30 flex items-center gap-0.5 rounded-[4px] bg-ink p-[3px] font-sans text-[13px] text-surface shadow-[0_8px_24px_-8px_rgb(21_23_26/50%)] select-none";
+export const popButton = "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-[3px] px-2.5 hover:bg-[#2b2f35]";
+
+export function SelectionPopover({ state, onCopy, onHighlight, onNote }: {
   state: NonNullable<SelectionPopoverState>;
   onCopy: () => Promise<boolean> | boolean;
   onHighlight: () => void;
-};
-
-export function SelectionPopover({ state, onCopy, onHighlight }: SelectionPopoverProps) {
+  onNote: () => void;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    const success = await onCopy();
-    if (success) {
-      setCopied(true);
-      setTimeout(() => {
-        setCopied(false);
-      }, 1200);
-    }
+    if (!(await onCopy())) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
   };
-
-  const isTop = state.position.placement === "top";
 
   return (
     <div
       data-selection-popover="true"
       onPointerDown={(event) => event.stopPropagation()}
-      style={{
-        left: `${state.position.x}px`,
-        top: `${state.position.y}px`,
-      }}
-      className={`pointer-events-auto absolute z-30 flex items-center gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-lg backdrop-blur select-none duration-150 animate-in fade-in zoom-in-95 ${
-        isTop ? "-translate-x-1/2 -translate-y-full -mt-2" : "-translate-x-1/2 mt-2"
-      }`}
+      style={{ left: `${state.position.x}px`, top: `${state.position.y}px` }}
+      className={`${popClass} -translate-x-1/2 ${state.position.placement === "top" ? "-mt-2 -translate-y-full" : "mt-2"}`}
       role="toolbar"
       aria-label="Acciones de texto seleccionado"
     >
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleCopy}
-        className="h-7 px-2 text-xs font-medium"
-        aria-label="Copiar texto"
-      >
-        {copied ? (
-          <>
-            <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-            <span>¡Copiado!</span>
-          </>
-        ) : (
-          <>
-            <Copy className="size-3.5" aria-hidden="true" />
-            <span>Copiar</span>
-          </>
-        )}
-      </Button>
-      <span className="h-4 w-px bg-border" aria-hidden="true" />
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onHighlight}
-        className="h-7 px-2 text-xs font-medium hover:text-amber-600 dark:hover:text-amber-400"
-        aria-label="Destacar texto"
-      >
-        <Highlighter className="size-3.5" aria-hidden="true" />
-        <span>Destacar</span>
-      </Button>
+      <button type="button" className={popButton} onClick={onHighlight} aria-label="Resaltar texto">
+        <span aria-hidden="true" className="size-3 rounded-[2px] bg-mark" />Resaltar
+      </button>
+      <button type="button" className={popButton} onClick={onNote} aria-label="Agregar nota">Nota</button>
+      <button type="button" className={popButton} onClick={handleCopy} aria-label="Copiar texto">
+        {copied ? "¡Copiado!" : "Copiar"}
+      </button>
     </div>
   );
 }

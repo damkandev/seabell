@@ -10,8 +10,7 @@ test("prepares the document for saving as PDF", async ({ page }) => {
     })) as unknown as typeof window.open;
   });
   await page.goto("/");
-  await page.getByRole("menuitem", { name: "Archivo" }).click();
-  await page.getByRole("menuitem", { name: "Crear documento" }).click();
+  await page.getByRole("button", { name: "Nuevo escrito" }).click();
   const title = page.getByLabel("Título del documento");
   await title.fill("");
   await expect(title).toHaveValue("");
@@ -25,8 +24,7 @@ test("prepares the document for saving as PDF", async ({ page }) => {
 
 test("applies justified text", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("menuitem", { name: "Archivo" }).click();
-  await page.getByRole("menuitem", { name: "Crear documento" }).click();
+  await page.getByRole("button", { name: "Nuevo escrito" }).click();
 
   const editor = page.getByLabel("Contenido del documento");
   await editor.fill("Texto para comprobar la alineación justificada.");
@@ -37,8 +35,7 @@ test("applies justified text", async ({ page }) => {
 
 test("applies a pixel font size", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("menuitem", { name: "Archivo" }).click();
-  await page.getByRole("menuitem", { name: "Crear documento" }).click();
+  await page.getByRole("button", { name: "Nuevo escrito" }).click();
 
   const editor = page.getByLabel("Contenido del documento");
   await editor.fill("Texto con tamaño personalizado.");
@@ -51,8 +48,7 @@ test("applies a pixel font size", async ({ page }) => {
 
 test("creates and nests a legal list", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("menuitem", { name: "Archivo" }).click();
-  await page.getByRole("menuitem", { name: "Crear documento" }).click();
+  await page.getByRole("button", { name: "Nuevo escrito" }).click();
 
   const editor = page.getByLabel("Contenido del documento");
   await editor.fill("Artículo");
@@ -70,8 +66,7 @@ test("creates and nests a legal list", async ({ page }) => {
 
 test("normalizes legacy ordered lists and keeps independent numbering blocks", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("menuitem", { name: "Archivo" }).click();
-  await page.getByRole("menuitem", { name: "Crear documento" }).click();
+  await page.getByRole("button", { name: "Nuevo escrito" }).click();
 
   const editor = page.getByLabel("Contenido del documento");
   await editor.evaluate((element) => {
@@ -86,8 +81,7 @@ test("normalizes legacy ordered lists and keeps independent numbering blocks", a
 
 test("escapes an empty legal item with backspace", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("menuitem", { name: "Archivo" }).click();
-  await page.getByRole("menuitem", { name: "Crear documento" }).click();
+  await page.getByRole("button", { name: "Nuevo escrito" }).click();
 
   const editor = page.getByLabel("Contenido del documento");
   await editor.fill("Primera cláusula");

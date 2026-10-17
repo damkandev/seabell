@@ -9,6 +9,8 @@ export type ExpedienteState = {
   color: ExpedienteColor;
   tree: ExpedienteNode[];
   activeNodeId: string | null;
+  /** Paneles abiertos en el workspace del expediente. */
+  layout?: PaneLayout;
 };
 
 export const EXPEDIENTE_COLORS: Record<ExpedienteColor, { dot: string }> = {
@@ -138,4 +140,5 @@ export function renameNode(tree: ExpedienteNode[], nodeId: string, newName: stri
     return node;
   });
 }
+import type { PaneLayout } from "@/lib/pane-layout";
 import { createLocalId } from "@/lib/utils";

@@ -11,8 +11,8 @@ test("migrates an existing workspace database without its index", async ({ page 
   }));
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Crear expediente" }).click();
-  await page.getByPlaceholder("Ej. Sucesión García").fill("Migración");
+  await page.getByRole("button", { name: "Nuevo expediente" }).first().click();
+  await page.getByLabel("Nombre o rol").fill("Migración");
   await page.getByRole("button", { name: "Crear", exact: true }).click();
 
   await expect.poll(() => page.evaluate(() => new Promise<boolean>((resolve, reject) => {

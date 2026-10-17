@@ -21,7 +21,7 @@ test.beforeEach(async ({ page }) => {
     buffer: createSelectionPdf(),
   });
   await expect(page.locator(".textLayer span").first()).toBeVisible();
-  await expect(page.getByText("/ 2")).toBeVisible();
+  await expect(page.getByText("/ 2", { exact: true })).toBeVisible();
 });
 
 test("selects a range, copies it and keeps the overlay after zoom", async ({ page }) => {
@@ -107,7 +107,7 @@ test("shows popover on selection and creates a persistent highlight", async ({ p
   const popover = page.locator("[data-selection-popover]");
   await expect(popover).toBeVisible();
 
-  await popover.getByRole("button", { name: "Destacar texto" }).click();
+  await popover.getByRole("button", { name: "Resaltar texto" }).click();
   await expect(popover).not.toBeVisible();
   await expect(page.locator(".selectionHighlight")).toHaveCount(0);
   await expect(page.locator(".pdfHighlight")).not.toHaveCount(0);
@@ -127,7 +127,7 @@ test("clicking an existing highlight allows removing it", async ({ page }) => {
   await page.mouse.move(box!.x + box!.width - 2, box!.y + box!.height / 2, { steps: 8 });
   await page.mouse.up();
 
-  await page.locator("[data-selection-popover]").getByRole("button", { name: "Destacar texto" }).click();
+  await page.locator("[data-selection-popover]").getByRole("button", { name: "Resaltar texto" }).click();
   await expect(page.locator(".pdfHighlight")).not.toHaveCount(0);
 
   const highlight = page.locator(".pdfHighlight").first();
@@ -142,7 +142,7 @@ test("clicking an existing highlight allows removing it", async ({ page }) => {
   await expect(page.locator(".pdfHighlight")).toHaveCount(0);
 });
 
-test("lists persistent highlights in a side panel and removes them", async ({ page }) => {
+test("lists persistent highlights in the annotations panel and removes them", async ({ page }) => {
   const line = page.locator(".textLayer span").filter({ hasText: "Hola mundo seleccionable" });
   const box = await line.boundingBox();
   expect(box).not.toBeNull();
@@ -151,15 +151,35 @@ test("lists persistent highlights in a side panel and removes them", async ({ pa
   await page.mouse.down();
   await page.mouse.move(box!.x + box!.width - 2, box!.y + box!.height / 2, { steps: 8 });
   await page.mouse.up();
-  await page.locator("[data-selection-popover]").getByRole("button", { name: "Destacar texto" }).click();
+  await page.locator("[data-selection-popover]").getByRole("button", { name: "Resaltar texto" }).click();
 
-  await page.getByRole("button", { name: "Ver destacados" }).click();
-  const panel = page.getByLabel("Destacados del documento");
-  await expect(panel).toBeVisible();
+  const panel = page.getByRole("region", { name: "Anotaciones del documento" });
   await expect(panel).toContainText("Hola mundo seleccionable");
-  await expect(panel).toContainText("Página 1");
+  await expect(panel).toContainText("pág. 1");
 
   await panel.getByRole("button", { name: "Eliminar destacado" }).click();
   await expect(page.locator(".pdfHighlight")).toHaveCount(0);
-  await expect(panel).toContainText("Aún no hay destacados");
+  await expect(panel).toContainText("Selecciona texto en el documento");
+});
+
+test("adds a note from the selection and lists it on Inicio", async ({ page }) => {
+  const line = page.locator(".textLayer span").filter({ hasText: "segunda linea de prueba" });
+  const box = await line.boundingBox();
+  expect(box).not.toBeNull();
+
+  await page.mouse.move(box!.x + 2, box!.y + box!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width - 2, box!.y + box!.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await page.locator("[data-selection-popover]").getByRole("button", { name: "Agregar nota" }).click();
+
+  const note = page.getByRole("textbox", { name: "Nota" });
+  await expect(note).toBeFocused();
+  await note.fill("Revisar para el recurso.");
+  await note.press("Control+Enter");
+  await expect(page.getByRole("region", { name: "Anotaciones del documento" })).toContainText("Revisar para el recurso.");
+
+  await page.getByRole("button", { name: "Volver a Inicio" }).click();
+  await expect(page.getByRole("complementary", { name: "Últimas notas" })).toContainText("Revisar para el recurso.");
+  await expect(page.getByRole("table", { name: "Documentos recientes" })).toContainText("selection-fixture.pdf");
 });

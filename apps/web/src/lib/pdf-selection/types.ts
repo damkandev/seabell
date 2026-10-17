@@ -54,7 +54,7 @@ export type SelectionStatus =
   | { kind: "indexing"; message: string }
   | { kind: "error"; message: string };
 
-export const DEFAULT_HIGHLIGHT_COLOR = "#fde68a";
+export const DEFAULT_HIGHLIGHT_COLOR = "#f6dd3b";
 
 export function isHighlightColor(value: unknown): value is string {
   return typeof value === "string" && /^#[\da-f]{6}$/i.test(value);
@@ -65,6 +65,7 @@ export type PdfHighlight = {
   range: SelectionRange;
   text: string;
   color?: string;
+  note?: string;
   createdAt: number;
 };
 

@@ -811,7 +811,7 @@ export class PdfSelectionController {
       createdAt: Date.now(),
     };
 
-    this.#highlights.push(highlight);
+    this.#highlights = [...this.#highlights, highlight];
     this.#onHighlightsChange?.(this.#highlights);
     this.clear();
     this.#renderHighlights();
@@ -822,6 +822,11 @@ export class PdfSelectionController {
     this.#highlights = this.#highlights.filter((h) => h.id !== id);
     this.#onHighlightsChange?.(this.#highlights);
     this.#renderHighlights();
+  }
+
+  setHighlightNote(id: string, note: string): void {
+    this.#highlights = this.#highlights.map((h) => (h.id === id ? { ...h, note: note.trim() || undefined } : h));
+    this.#onHighlightsChange?.(this.#highlights);
   }
 
   setHighlights(highlights: PdfHighlight[]): void {

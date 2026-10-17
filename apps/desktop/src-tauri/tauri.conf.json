@@ -16,7 +16,14 @@
         "width": 1440,
         "height": 900,
         "minWidth": 1024,
-        "minHeight": 640
+        "minHeight": 640,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 16,
+          "y": 22
+        },
+        "dragDropEnabled": false
       }
     ],
     "security": {

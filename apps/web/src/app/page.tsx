@@ -1,9 +1,5 @@
-import { PdfImporter } from "@/components/pdf-importer";
+import { SeabellApp } from "@/components/seabell-app";
 
 export default function Home() {
-  return (
-    <div className="workspace-enter">
-      <PdfImporter />
-    </div>
-  );
+  return <SeabellApp />;
 }

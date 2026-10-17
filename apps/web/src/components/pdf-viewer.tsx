@@ -1,7 +1,7 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, ChevronRight, Highlighter, Search, ZoomIn, ZoomOut } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { PDFDocumentLoadingTask } from "pdfjs-dist";
 import type {
   EventBus,
@@ -10,9 +10,9 @@ import type {
   PDFViewer as PDFViewerController,
 } from "pdfjs-dist/web/pdf_viewer.mjs";
 
-import { Button } from "@/components/ui/button";
 import type { ImportedPdf } from "@/lib/pdf-import";
-import { PdfSearchIndex, type PdfSearchResult } from "@/lib/pdf-search";
+import { loadPdfJs } from "@/lib/pdfjs";
+import { PdfSearchIndex } from "@/lib/pdf-search";
 import type { PdfSelectionController } from "@/lib/pdf-selection/controller";
 import { DEFAULT_HIGHLIGHT_COLOR } from "@/lib/pdf-selection/types";
 import type {
@@ -22,9 +22,8 @@ import type {
   SelectionStatus,
 } from "@/lib/pdf-selection/types";
 import { HighlightPopover } from "./highlight-popover";
-import { PdfHighlightsPanel } from "./pdf-highlights-panel";
-import { PdfSearchPanel } from "./pdf-search-panel";
-import { PdfTimelinePanel } from "./pdf-timeline-panel";
+import { Icon } from "./icon";
+import { PdfAnnotations, PdfDates } from "./pdf-panels";
 import { SelectionPopover } from "./selection-popover";
 
 import styles from "./pdf-viewer.module.css";
@@ -35,7 +34,6 @@ const MIN_SCALE = 0.5;
 const MAX_SCALE = 2;
 const SCALE_STEP = 0.25;
 
-type PdfJs = typeof import("pdfjs-dist");
 type ViewerSession = {
   dispose: () => void;
   eventBus: EventBus;
@@ -46,22 +44,34 @@ type ViewerSession = {
   viewer: PDFViewerController;
 };
 type PageChangingEvent = { pageNumber: number };
-type ScaleChangingEvent = { scale: number };
+type ScaleChangingEvent = { scale: number; presetValue?: string };
 
 export type PdfViewState = {
   highlights: PdfHighlight[];
   currentPage: number;
-  scale: number;
-  searchQuery: string;
-  panel: "search" | "highlights" | "timeline" | null;
+  /** Zoom manual; sin él la página se ajusta al ancho. */
+  scale?: number;
+  pageCount?: number;
+  openedAt?: number;
 };
+export type PanelTab = "anot" | "fechas";
+/** Petición de mostrar un punto del documento; `nonce` permite repetirla. */
+export type PdfReveal = { pageNumber: number; verticalRatio: number; nonce: number };
 
-export function PdfViewer({ importedPdf, initialState, onStateChange, highlightColor }: {
+export function PdfViewer({ importedPdf, name, initialState, onStateChange, highlightColor, searchQuery = "", reveal, panel, onShowAnnotations }: {
   importedPdf: ImportedPdf;
+  name: string;
   initialState?: Partial<PdfViewState>;
-  onStateChange?: (state: PdfViewState) => void;
+  /** Recibe solo los campos que cambiaron. */
+  onStateChange?: (patch: Partial<PdfViewState>) => void;
   highlightColor?: string;
+  searchQuery?: string;
+  reveal?: PdfReveal | null;
+  /** Destino del panel derecho cuando este visor es el panel activo. */
+  panel?: { target: HTMLElement; tab: PanelTab } | null;
+  onShowAnnotations?: () => void;
 }) {
+  const pageInputId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerElementRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<ViewerSession | null>(null);
@@ -73,46 +83,58 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
   const [selectionPopover, setSelectionPopover] = useState<SelectionPopoverState>(null);
   const [highlightPopover, setHighlightPopover] = useState<ActiveHighlightPopoverState>(null);
   const [highlights, setHighlights] = useState<PdfHighlight[]>(initialState?.highlights ?? []);
-  const [highlightsOpen, setHighlightsOpen] = useState(initialState?.panel === "highlights");
-  const [searchOpen, setSearchOpen] = useState(initialState?.panel === "search");
-  const [timelineOpenState, setTimelineOpenState] = useState(initialState?.panel === "timeline");
-  const [searchQuery, setSearchQuery] = useState(initialState?.searchQuery ?? "");
+  const [editingNote, setEditingNote] = useState<string | null>(null);
   const [, setSearchRevision] = useState(0);
   const searchIndexRef = useRef<PdfSearchIndex | null>(null);
-  // Background indexing schedules a render whenever more pages become searchable.
-  const searchResults = searchIndexRef.current?.search(searchQuery) ?? [];
   const initialStateRef = useRef(initialState);
   const highlightColorRef = useRef(highlightColor ?? DEFAULT_HIGHLIGHT_COLOR);
   highlightColorRef.current = highlightColor ?? DEFAULT_HIGHLIGHT_COLOR;
   const onStateChangeRef = useRef(onStateChange);
   onStateChangeRef.current = onStateChange;
-  const viewStateRef = useRef<PdfViewState>({
-    highlights,
-    currentPage,
-    scale,
-    searchQuery,
-    panel: searchOpen ? "search" : highlightsOpen ? "highlights" : timelineOpenState ? "timeline" : null,
-  });
-  viewStateRef.current = {
-    highlights,
-    currentPage,
-    scale,
-    searchQuery,
-    panel: searchOpen ? "search" : highlightsOpen ? "highlights" : timelineOpenState ? "timeline" : null,
-  };
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
+  const revealRef = useRef(reveal);
+  revealRef.current = reveal;
 
-  const saveViewState = useCallback((next: Partial<PdfViewState>) => {
-    onStateChangeRef.current?.({ ...viewStateRef.current, ...next });
+  const saveViewState = useCallback((patch: Partial<PdfViewState>) => {
+    onStateChangeRef.current?.(patch);
+  }, []);
+
+  /** Lleva la página al centro del panel, a la altura relativa indicada. */
+  const scrollTo = useCallback((pageNumber: number, verticalRatio = 0.5) => {
+    const session = sessionRef.current;
+    const container = containerRef.current;
+    const viewerElement = viewerElementRef.current;
+    if (!session || !container || !viewerElement) return;
+    session.viewer.currentPageNumber = pageNumber;
+    let attempts = 0;
+    const center = () => {
+      const page = viewerElement.querySelector<HTMLElement>(`.page[data-page-number="${pageNumber}"]`);
+      if (!page) {
+        if (attempts++ < 30) window.requestAnimationFrame(center);
+        return;
+      }
+      const y = page.offsetTop + page.offsetHeight * verticalRatio;
+      container.scrollTo({ top: Math.max(0, y - container.clientHeight / 2), behavior: "smooth" });
+    };
+    window.requestAnimationFrame(center);
+  }, []);
+
+  const find = useCallback((query: string) => {
+    sessionRef.current?.eventBus.dispatch("find", {
+      query,
+      phraseSearch: true,
+      caseSensitive: false,
+      entireWord: true,
+      highlightAll: Boolean(query),
+      findPrevious: false,
+    });
   }, []);
 
   useEffect(() => {
     const container = containerRef.current;
     const viewerElement = viewerElementRef.current;
     if (!container || !viewerElement) return;
-
-    setHighlights(initialStateRef.current?.highlights ?? []);
-    setHighlightsOpen(initialStateRef.current?.panel === "highlights");
-    setSearchOpen(initialStateRef.current?.panel === "search");
 
     let active = true;
     let loadingTask: PDFDocumentLoadingTask | null = null;
@@ -122,18 +144,13 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
 
     const startSession = async () => {
       // PDF.js 6 expone `pdfjsLib` al evaluar el módulo principal. Su capa web
-      // lo consume durante su propia evaluación, por lo que el orden importa
-      // especialmente con el runtime de desarrollo de Turbopack.
-      const pdfjs = (await import("pdfjs-dist")) as PdfJs;
+      // lo consume durante su propia evaluación, por lo que el orden importa.
+      const pdfjs = await loadPdfJs();
       const viewerModule = await import("pdfjs-dist/web/pdf_viewer.mjs");
       const { PdfSelectionController } = await import("@/lib/pdf-selection/controller");
       if (!active) return;
       openingPhase = "document";
 
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.mjs",
-        import.meta.url,
-      ).toString();
       const initialData = new Uint8Array(
         await importedPdf.file.slice(0, RANGE_CHUNK_SIZE).arrayBuffer(),
       );
@@ -206,13 +223,27 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
 
       const handlePagesInit = () => {
         viewer.currentPageNumber = initialStateRef.current?.currentPage ?? 1;
-        viewer.currentScale = initialStateRef.current?.scale ?? DEFAULT_SCALE;
+        // Sin zoom propio, la página se ajusta al ancho del panel.
+        if (initialStateRef.current?.scale) viewer.currentScale = initialStateRef.current.scale;
+        else viewer.currentScaleValue = "page-width";
         setPageCount(viewer.pagesCount);
-        setCurrentPage(initialStateRef.current?.currentPage ?? viewer.currentPageNumber);
+        setCurrentPage(viewer.currentPageNumber);
         setScale(viewer.currentScale);
+        saveViewState({ pageCount: viewer.pagesCount, openedAt: Date.now() });
+        if (searchQueryRef.current) find(searchQueryRef.current);
+        const pending = revealRef.current;
+        if (pending) scrollTo(pending.pageNumber, pending.verticalRatio);
       };
       const handlePageChanging = ({ pageNumber }: PageChangingEvent) => { setCurrentPage(pageNumber); saveViewState({ currentPage: pageNumber }); };
-      const handleScaleChanging = ({ scale: nextScale }: ScaleChangingEvent) => { setScale(nextScale); saveViewState({ scale: nextScale }); };
+      const handleScaleChanging = ({ scale: nextScale, presetValue }: ScaleChangingEvent) => {
+        setScale(nextScale);
+        if (!presetValue) saveViewState({ scale: nextScale });
+      };
+      // Reajusta el ancho cuando el panel cambia de tamaño, salvo con zoom manual.
+      const resizeObserver = new ResizeObserver(() => {
+        if (viewer.currentScaleValue === "page-width") viewer.currentScaleValue = "page-width";
+      });
+      resizeObserver.observe(container);
       eventBus.on("pagesinit", handlePagesInit);
       eventBus.on("pagechanging", handlePageChanging);
       eventBus.on("scalechanging", handleScaleChanging);
@@ -254,17 +285,12 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
             const containerRect = container.getBoundingClientRect();
             const x = Math.round(position.x - containerRect.left + container.scrollLeft);
             const y = Math.round(position.y - containerRect.top + container.scrollTop);
-            setHighlightPopover({
-              highlight,
-              position: { x, y },
-            });
+            setHighlightPopover({ highlight, position: { x, y } });
           } else {
             setHighlightPopover(null);
           }
         },
-
       });
-
 
       linkService.setViewer(viewer);
       linkService.setDocument(pdfDocument);
@@ -272,6 +298,7 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
       viewer.setDocument(pdfDocument);
       sessionRef.current = {
         dispose: () => {
+          resizeObserver.disconnect();
           eventBus.off("pagesinit", handlePagesInit);
           eventBus.off("pagechanging", handlePageChanging);
           eventBus.off("scalechanging", handleScaleChanging);
@@ -320,27 +347,10 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
       if (loadingTask) void loadingTask.destroy();
       viewerElement.replaceChildren();
     };
-  }, [importedPdf, saveViewState]);
+  }, [importedPdf, saveViewState, scrollTo, find]);
 
-  useEffect(() => {
-    const findController = sessionRef.current?.findController;
-    if (!findController) return;
-    sessionRef.current?.eventBus.dispatch("find", {
-      query: searchQuery,
-      phraseSearch: true,
-      caseSensitive: false,
-      entireWord: true,
-      highlightAll: Boolean(searchQuery),
-      findPrevious: false,
-    });
-  }, [searchQuery]);
-
-  const setPanel = (panel: PdfViewState["panel"]) => {
-    setSearchOpen(panel === "search");
-    setHighlightsOpen(panel === "highlights");
-    setTimelineOpenState(panel === "timeline");
-    saveViewState({ panel });
-  };
+  useEffect(() => { find(searchQuery); }, [searchQuery, find]);
+  useEffect(() => { if (reveal) scrollTo(reveal.pageNumber, reveal.verticalRatio); }, [reveal, scrollTo]);
 
   const goToPage = useCallback((requestedPage: number) => {
     const viewer = sessionRef.current?.viewer;
@@ -357,201 +367,107 @@ export function PdfViewer({ importedPdf, initialState, onStateChange, highlightC
     );
   }, []);
 
-  const openResult = useCallback((result: PdfSearchResult) => {
-    const session = sessionRef.current;
-    const container = containerRef.current;
-    const viewerElement = viewerElementRef.current;
-    if (!session || !container || !viewerElement) return;
-    session.viewer.currentPageNumber = result.pageNumber;
-    session.eventBus.dispatch("find", {
-      query: searchQuery,
-      phraseSearch: true,
-      caseSensitive: false,
-      entireWord: true,
-      highlightAll: true,
-      findPrevious: false,
-    });
-
-    let attempts = 0;
-    const centerMatch = () => {
-      const page = viewerElement.querySelector<HTMLElement>(
-        `.page[data-page-number="${result.pageNumber}"]`,
-      );
-      if (!page) {
-        if (attempts++ < 30) window.requestAnimationFrame(centerMatch);
-        return;
-      }
-      const matchY = page.offsetTop + page.offsetHeight * result.verticalRatio;
-      container.scrollTo({
-        top: Math.max(0, matchY - container.clientHeight / 2),
-        behavior: "smooth",
-      });
-    };
-    window.requestAnimationFrame(centerMatch);
-  }, [searchQuery]);
-
   const openHighlight = useCallback((highlight: PdfHighlight) => {
-    const session = sessionRef.current;
-    const container = containerRef.current;
-    const viewerElement = viewerElementRef.current;
-    if (!session || !container || !viewerElement) return;
-
-    const pageNumber = Math.min(
-      highlight.range.anchor.pageNumber,
-      highlight.range.focus.pageNumber,
-    );
-    session.viewer.currentPageNumber = pageNumber;
-    setHighlightsOpen(false);
     setHighlightPopover(null);
-
-    let attempts = 0;
-    const centerPage = () => {
-      const page = viewerElement.querySelector<HTMLElement>(`.page[data-page-number="${pageNumber}"]`);
-      if (!page) {
-        if (attempts++ < 30) window.requestAnimationFrame(centerPage);
-        return;
-      }
-      container.scrollTo({
-        top: Math.max(0, page.offsetTop - (container.clientHeight - page.offsetHeight) / 2),
-        behavior: "smooth",
-      });
-    };
-    window.requestAnimationFrame(centerPage);
-  }, []);
+    scrollTo(Math.min(highlight.range.anchor.pageNumber, highlight.range.focus.pageNumber));
+  }, [scrollTo]);
 
   const removeHighlight = useCallback((id: string) => {
     sessionRef.current?.selectionController.removeHighlight(id);
     setHighlightPopover(null);
   }, []);
 
-  const sidePanelOpen = searchOpen || highlightsOpen || timelineOpenState;
+  const searchIndex = searchIndexRef.current;
 
   return (
-    <section className="sb-pdf-viewer relative flex h-full flex-col bg-muted/30">
-      <div className={`pointer-events-none fixed inset-x-0 bottom-4 z-10 flex justify-center px-4 sm:justify-end ${sidePanelOpen ? "sm:right-96" : "sm:px-6"}`}>
-        <div className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-[6px] border border-[var(--sb-color-border-strong)] bg-white p-1 shadow-[5px_5px_0_var(--sb-color-shadow)] backdrop-blur">
-          <Button variant="ghost" size="icon" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1} aria-label="Página anterior"><ChevronLeft /></Button>
-          <label className="sr-only" htmlFor="page-number">Página</label>
-          <input id="page-number" className="h-8 w-14 rounded border bg-background px-2 text-center tabular-nums" type="number" min="1" max={pageCount ?? undefined} value={currentPage} onChange={(event) => goToPage(Number(event.target.value))} />
-          <span className="px-1 text-muted-foreground tabular-nums">/ {pageCount ?? "…"}</span>
-          <Button variant="ghost" size="icon" onClick={() => goToPage(currentPage + 1)} disabled={!pageCount || currentPage >= pageCount} aria-label="Página siguiente"><ChevronRight /></Button>
-          <span className="mx-1 h-5 w-px bg-border" />
-          <Button variant="ghost" size="icon" onClick={() => changeScale(-SCALE_STEP)} disabled={!pageCount || scale <= MIN_SCALE} aria-label="Alejar"><ZoomOut /></Button>
-          <span className="w-10 text-center text-xs tabular-nums">{Math.round(scale * 100)}%</span>
-          <Button variant="ghost" size="icon" onClick={() => changeScale(SCALE_STEP)} disabled={!pageCount || scale >= MAX_SCALE} aria-label="Acercar"><ZoomIn /></Button>
-          <span className="mx-1 h-5 w-px bg-border" />
-          <Button variant={searchOpen ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(searchOpen ? null : "search")} aria-label="Buscar en el PDF" aria-pressed={searchOpen}><Search /></Button>
-          <Button variant={highlightsOpen ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(highlightsOpen ? null : "highlights")} aria-label="Ver destacados" aria-pressed={highlightsOpen}><Highlighter /></Button>
-          <Button variant={timelineOpenState ? "secondary" : "ghost"} size="icon" onClick={() => setPanel(timelineOpenState ? null : "timeline")} aria-label="Cronología del documento" aria-pressed={timelineOpenState}><CalendarDays /></Button>
-        </div>
-      </div>
-      {error ? <p className="pointer-events-none absolute inset-x-0 top-8 z-10 text-center text-sm text-destructive" role="alert">{error}</p> : !pageCount && <p className="pointer-events-none absolute inset-x-0 top-8 z-10 text-center text-sm text-muted-foreground" role="status">Preparando PDF…</p>}
+    <div className="relative h-full min-h-0 bg-surface-3">
+      {error ? <p className="pointer-events-none absolute inset-x-0 top-8 z-10 text-center text-destructive" role="alert">{error}</p> : !pageCount && <p className="pointer-events-none absolute inset-x-0 top-8 z-10 text-center text-ink-3" role="status">Preparando PDF…</p>}
       {selectionStatus.kind !== "idle" && (
         <p
-          className={`pointer-events-none fixed bottom-16 right-6 z-20 rounded-md border bg-background/95 px-3 py-2 text-xs shadow ${selectionStatus.kind === "error" ? "text-destructive" : "text-muted-foreground"}`}
+          className={`pointer-events-none absolute bottom-14 right-3 z-20 rounded-[3px] bg-paper px-3 py-2 text-xs shadow-[0_0_0_1px_var(--line)] ${selectionStatus.kind === "error" ? "text-destructive" : "text-ink-3"}`}
           role={selectionStatus.kind === "error" ? "alert" : "status"}
         >
           {selectionStatus.message}
         </p>
       )}
-      <div ref={containerRef} className={`${styles.container} absolute bottom-0 left-0 top-0 overflow-auto outline-none ${sidePanelOpen ? "right-0 sm:right-96" : "right-0"}`} aria-label="Documento PDF" tabIndex={0}>
+      <div ref={containerRef} className={`${styles.container} absolute inset-0 overflow-auto outline-none`} aria-label="Documento PDF" tabIndex={0}>
         <div ref={viewerElementRef} className={`${styles.viewer} pdfViewer`} />
         {selectionPopover && (
           <SelectionPopover
             state={selectionPopover}
-            onCopy={async () => {
-              const controller = sessionRef.current?.selectionController;
-              if (!controller) return false;
-              return await controller.copySelection();
-            }}
+            onCopy={async () => await sessionRef.current?.selectionController.copySelection() ?? false}
             onHighlight={() => {
-              const controller = sessionRef.current?.selectionController;
-              controller?.highlightSelection(highlightColorRef.current);
+              sessionRef.current?.selectionController.highlightSelection(highlightColorRef.current);
               setSelectionPopover(null);
+            }}
+            onNote={() => {
+              const highlight = sessionRef.current?.selectionController.highlightSelection(highlightColorRef.current);
+              setSelectionPopover(null);
+              if (!highlight) return;
+              setEditingNote(highlight.id);
+              onShowAnnotations?.();
             }}
           />
         )}
         {highlightPopover && (
           <HighlightPopover
             state={highlightPopover}
-            onCopy={async (text) => {
-              try {
-                if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-                  await navigator.clipboard.writeText(text);
-                  return true;
-                }
-              } catch {
-                // Fallback
-              }
-              try {
-                const textarea = document.createElement("textarea");
-                textarea.value = text;
-                textarea.style.position = "fixed";
-                textarea.style.left = "-9999px";
-                textarea.style.top = "0";
-                textarea.setAttribute("readonly", "");
-                document.body.appendChild(textarea);
-                textarea.select();
-                const success = document.execCommand("copy");
-                textarea.remove();
-                return success;
-              } catch {
-                return false;
-              }
-            }}
+            onCopy={copyText}
             onRemove={removeHighlight}
             onClose={() => setHighlightPopover(null)}
           />
         )}
       </div>
 
-      <PdfSearchPanel
-        open={searchOpen}
-        query={searchQuery}
-        results={searchResults}
-        indexedPages={searchIndexRef.current?.indexedPageCount ?? 0}
-        pageCount={searchIndexRef.current?.pageCount ?? pageCount ?? 0}
-        onClose={() => setPanel(null)}
-        onQueryChange={(query) => { setSearchQuery(query); saveViewState({ searchQuery: query }); }}
-        onResultClick={openResult}
-      />
-      <PdfHighlightsPanel
-        open={highlightsOpen}
-        highlights={highlights}
-        onClose={() => setPanel(null)}
-        onHighlightClick={openHighlight}
-        onRemove={removeHighlight}
-      />
-      <PdfTimelinePanel
-        open={timelineOpenState}
-        searchIndex={searchIndexRef.current}
-        indexedPages={searchIndexRef.current?.indexedPageCount ?? 0}
-        pageCount={searchIndexRef.current?.pageCount ?? pageCount ?? 0}
-        onClose={() => setPanel(null)}
-        onEntryClick={(entry) => {
-          const session = sessionRef.current;
-          const container = containerRef.current;
-          const viewerElement = viewerElementRef.current;
-          if (!session || !container || !viewerElement) return;
-          session.viewer.currentPageNumber = entry.pageNumber;
-          let attempts = 0;
-          const scrollToEntry = () => {
-            const page = viewerElement.querySelector<HTMLElement>(
-              `.page[data-page-number="${entry.pageNumber}"]`,
-            );
-            if (!page) {
-              if (attempts++ < 30) window.requestAnimationFrame(scrollToEntry);
-              return;
-            }
-            const matchY = page.offsetTop + page.offsetHeight * entry.verticalRatio;
-            container.scrollTo({
-              top: Math.max(0, matchY - container.clientHeight / 2),
-              behavior: "smooth",
-            });
-          };
-          window.requestAnimationFrame(scrollToEntry);
-        }}
-      />
-    </section>
+      <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-[3px] bg-paper p-0.5 font-mono text-[11px] text-ink-3 shadow-[0_0_0_1px_var(--line),0_8px_24px_-12px_rgb(21_23_26/35%)]">
+        <button type="button" className="ib" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1} aria-label="Página anterior"><Icon name="back" /></button>
+        <label className="sr-only" htmlFor={pageInputId}>Página</label>
+        <input id={pageInputId} className="h-6 w-9 rounded-[3px] bg-surface-2 text-center text-ink tabular-nums outline-none focus-visible:shadow-[inset_0_0_0_1px_var(--ink)]" type="number" min="1" max={pageCount ?? undefined} value={currentPage} onChange={(event) => goToPage(Number(event.target.value))} />
+        <span className="px-1 whitespace-nowrap tabular-nums">/ {pageCount ?? "…"}</span>
+        <button type="button" className="ib" onClick={() => goToPage(currentPage + 1)} disabled={!pageCount || currentPage >= pageCount} aria-label="Página siguiente"><Icon name="chevron" /></button>
+        <span className="mx-0.5 h-4 w-px bg-line" aria-hidden="true" />
+        <button type="button" className="ib" onClick={() => changeScale(-SCALE_STEP)} disabled={!pageCount || scale <= MIN_SCALE} aria-label="Alejar"><Icon name="minus" /></button>
+        <span className="w-9 text-center tabular-nums">{Math.round(scale * 100)}%</span>
+        <button type="button" className="ib" onClick={() => changeScale(SCALE_STEP)} disabled={!pageCount || scale >= MAX_SCALE} aria-label="Acercar"><Icon name="plus" /></button>
+      </div>
+
+      {panel && createPortal(
+        panel.tab === "anot"
+          ? <PdfAnnotations
+              title={name}
+              highlights={highlights}
+              editingId={editingNote}
+              onEdit={setEditingNote}
+              onOpen={openHighlight}
+              onRemove={removeHighlight}
+              onNote={(id, note) => sessionRef.current?.selectionController.setHighlightNote(id, note)}
+            />
+          : <PdfDates
+              searchIndex={searchIndex}
+              indexedPages={searchIndex?.indexedPageCount ?? 0}
+              pageCount={searchIndex?.pageCount ?? pageCount ?? 0}
+              onOpen={(entry) => scrollTo(entry.pageNumber, entry.verticalRatio)}
+            />,
+        panel.target,
+      )}
+    </div>
   );
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // WebKit puede negar el portapapeles asíncrono; se recurre a execCommand.
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.cssText = "position:fixed;left:-9999px;top:0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const success = document.execCommand("copy");
+  textarea.remove();
+  return success;
 }

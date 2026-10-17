@@ -1,67 +1,47 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Dialog } from "@base-ui/react/dialog";
-import { Button } from "./ui/button";
+import { useEffect, useRef } from "react";
 
-export type NewExpedienteDialogProps = {
+export const dialogClass = "m-auto w-[min(440px,calc(100vw-32px))] rounded-[4px] bg-paper p-0 text-ink shadow-[0_0_0_1px_var(--line),0_24px_48px_-16px_rgb(21_23_26/40%)] backdrop:bg-[rgb(21_23_26/35%)]";
+
+/** Abre o cierra un `<dialog>` nativo como modal según `open`. */
+export function useModal(open: boolean) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (open && !dialog?.open) dialog?.showModal();
+    if (!open && dialog?.open) dialog.close();
+  }, [open]);
+  return ref;
+}
+
+export function NewExpedienteDialog({ open, onClose, onConfirm }: {
   open: boolean;
   onClose: () => void;
   onConfirm: (name: string) => void;
-};
-
-export function NewExpedienteDialog({ open, onClose, onConfirm }: NewExpedienteDialogProps) {
-  const [name, setName] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [open]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (name.trim()) {
-      onConfirm(name.trim());
-      setName("");
-      onClose();
-    }
-  };
-
+}) {
+  const ref = useModal(open);
   return (
-    <Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) { setName(""); onClose(); } }}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-[rgb(18_27_17_/_45%)]" />
-        <Dialog.Popup className="sb-grid fixed left-[50%] top-[50%] z-50 w-full max-w-md translate-x-[-50%] translate-y-[-50%] border border-[var(--sb-color-border-strong)] bg-background p-7 shadow-[7px_7px_0_var(--sb-color-shadow)]">
-          <Dialog.Title className="sb-heading mb-4 text-2xl text-foreground">
-            Crear nuevo expediente
-          </Dialog.Title>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <label className="sb-label flex flex-col gap-2 text-foreground">
-              Nombre del expediente
-              <input
-                ref={inputRef}
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="h-11 rounded-[6px] border border-input bg-background px-3 py-2 font-sans text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                placeholder="Ej. Sucesión García"
-              />
-            </label>
-            <div className="flex justify-end gap-2 mt-4">
-              
-                <Button variant="outline" type="button" onClick={() => { setName(""); onClose(); }}>
-                  Cancelar
-                </Button>
-              
-              <Button type="submit" disabled={!name.trim()}>
-                Crear
-              </Button>
-            </div>
-          </form>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <dialog ref={ref} className={dialogClass} aria-labelledby="nuevo-expediente" onClose={onClose}>
+      <form
+        method="dialog"
+        className="flex flex-col gap-4 p-6"
+        onSubmit={(event) => {
+          const name = new FormData(event.currentTarget).get("name")?.toString().trim();
+          if (name) onConfirm(name);
+          event.currentTarget.reset();
+        }}
+      >
+        <h2 id="nuevo-expediente" className="m-0 font-serif text-[22px] tracking-[-0.015em]">Nuevo expediente</h2>
+        <label className="flex flex-col gap-1.5 text-ink-2">
+          Nombre o rol
+          <input name="name" required autoFocus placeholder="Ej. Rol C-2418-2025" className="h-9 rounded-[3px] bg-paper px-2.5 text-ink shadow-[inset_0_0_0_1px_var(--line-2)] outline-none focus:shadow-[inset_0_0_0_1px_var(--ink)]" />
+        </label>
+        <div className="flex justify-end gap-2">
+          <button type="button" className="ib px-3" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="h-8 cursor-pointer rounded-[3px] bg-ink px-3 text-surface shadow-[inset_0_-2px_0_rgb(0_0_0/35%)] hover:bg-[#2b2f35]">Crear</button>
+        </div>
+      </form>
+    </dialog>
   );
 }
