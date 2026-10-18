@@ -151,7 +151,7 @@ desde PC.
 
 La ventana se organiza en cuatro bandas:
 
-1. **Barra superior:** menú Archivo, estado de guardado, cuenta y salida.
+1. **Barra superior:** menú Archivo y estado de guardado.
 2. **Pestañas:** home, expedientes, PDFs y documentos editables abiertos.
 3. **Área de trabajo:** explorador de archivos, documento principal y panel
    contextual cuando corresponda.
@@ -191,26 +191,11 @@ pequeña. El mensaje de móvil debe explicar la restricción sin parecer un erro
 
 ## 4. Componentes
 
-### Autenticación
-
-`AuthGate` controla carga, error y sesión; `AuthScreen` contiene login y
-registro. La vista debe sentirse como la entrada a un archivo de trabajo, no
-como una pantalla genérica de SaaS.
-
-- Fondo de lienzo con papel o grilla muy sutil.
-- Marca arriba del título, icono local y wordmark solo si corresponde.
-- Título serif; labels y ayudas en Lilex; botón y mensajes técnicos en mono.
-- Formulario estrecho, labels explícitos, campos de `44px` mínimo y foco visible.
-- El error aparece junto al formulario y conserva `role="alert"`.
-- La animación de entrada puede mantenerse corta; los orbes decorativos actuales
-  se reemplazarán por textura o patrón CSS liviano.
-
 ### Barra superior y pestañas
 
 La barra actual de `PdfImporter` es el chrome principal de la aplicación.
 
-- Mantener `Archivo`, estado de autoguardado, cuenta y `Salir` en una jerarquía
-  clara.
+- Mantener `Archivo` y el estado de autoguardado en una jerarquía clara.
 - Usar IBM Plex Mono para acciones y metadatos de guardado.
 - Las pestañas de PDF, expediente y documento editable tienen icono, nombre,
   estado y cierre.
@@ -307,7 +292,7 @@ Reutilizar `PdfSearchPanel`, `PdfHighlightsPanel`, `PdfTimelinePanel` y
 - Buscar, reemplazar y exportar `.doc` mantienen estados claros y foco visible.
 - Impresión elimina textura, chrome y sombras.
 
-### Configuración y cuenta
+### Configuración
 
 La vista de configuración debe permanecer dentro del workspace, usando una
 estructura de lectura de máximo `720px`.
@@ -315,23 +300,22 @@ estructura de lectura de máximo `720px`.
 - Título serif, explicación breve y secciones con borde.
 - Los colores de destacado usan controles radio con nombre, estado y foco; no
   solo círculos sin texto accesible.
-- La cuenta, autoguardado, privacidad y exportación deben usar lenguaje directo.
+- Autoguardado, privacidad y exportación deben usar lenguaje directo.
 
 ## 5. Estados y flujo de trabajo
 
 Los estados visuales mínimos son:
 
-1. Cargando sesión.
-2. Error de autenticación o restauración local.
-3. Home vacía.
-4. Home con documentos recientes.
-5. Importando o validando PDF/`.abn`.
-6. Workspace con pestañas.
-7. Expediente sin PDF seleccionado.
-8. PDF cargando, listo o con error.
-9. Panel contextual abierto.
-10. Autoguardado apagado, guardando, guardado o con error.
-11. Configuración abierta.
+1. Error de restauración local.
+2. Home vacía.
+3. Home con documentos recientes.
+4. Importando o validando PDF/`.abn`.
+5. Workspace con pestañas.
+6. Expediente sin PDF seleccionado.
+7. PDF cargando, listo o con error.
+8. Panel contextual abierto.
+9. Autoguardado apagado, guardando, guardado o con error.
+10. Configuración abierta.
 
 Cada estado debe tener una señal de texto o estructura además del color. Los
 errores no deben desaparecer automáticamente si el usuario necesita actuar.
@@ -452,11 +436,10 @@ Objetivos mínimos:
 - Tokens, fuentes, textura, estados y motion: [`apps/web/src/app/globals.css`](apps/web/src/app/globals.css)
 - Entrada y restricción de viewport: [`apps/web/src/app/page.tsx`](apps/web/src/app/page.tsx)
 - Metadata y fuentes: [`apps/web/src/app/layout.tsx`](apps/web/src/app/layout.tsx)
-- Coordinación del workspace: [`apps/web/src/components/pdf-importer.tsx`](apps/web/src/components/pdf-importer.tsx)
-- Autenticación: [`apps/web/src/components/auth-gate.tsx`](apps/web/src/components/auth-gate.tsx), [`apps/web/src/components/auth-screen.tsx`](apps/web/src/components/auth-screen.tsx)
-- Home y recientes: [`apps/web/src/components/home-screen.tsx`](apps/web/src/components/home-screen.tsx), [`apps/web/src/components/recent-doc-card.tsx`](apps/web/src/components/recent-doc-card.tsx)
-- Expedientes: [`apps/web/src/components/expediente-view.tsx`](apps/web/src/components/expediente-view.tsx), [`apps/web/src/components/file-tree.tsx`](apps/web/src/components/file-tree.tsx), [`apps/web/src/components/new-expediente-dialog.tsx`](apps/web/src/components/new-expediente-dialog.tsx)
-- PDF y paneles: [`apps/web/src/components/pdf-viewer.tsx`](apps/web/src/components/pdf-viewer.tsx), [`apps/web/src/components/pdf-search-panel.tsx`](apps/web/src/components/pdf-search-panel.tsx), [`apps/web/src/components/pdf-highlights-panel.tsx`](apps/web/src/components/pdf-highlights-panel.tsx), [`apps/web/src/components/pdf-timeline-panel.tsx`](apps/web/src/components/pdf-timeline-panel.tsx), [`apps/web/src/components/pdf-laws-panel.tsx`](apps/web/src/components/pdf-laws-panel.tsx)
+- Coordinación del workspace: [`apps/web/src/components/seabell-app.tsx`](apps/web/src/components/seabell-app.tsx), [`apps/web/src/components/workspace.tsx`](apps/web/src/components/workspace.tsx)
+- Inicio y recientes: [`apps/web/src/components/inicio.tsx`](apps/web/src/components/inicio.tsx)
+- Expedientes: [`apps/web/src/lib/expediente.ts`](apps/web/src/lib/expediente.ts), [`apps/web/src/components/new-expediente-dialog.tsx`](apps/web/src/components/new-expediente-dialog.tsx)
+- PDF y paneles: [`apps/web/src/components/pdf-viewer.tsx`](apps/web/src/components/pdf-viewer.tsx), [`apps/web/src/components/pdf-panels.tsx`](apps/web/src/components/pdf-panels.tsx)
 - Editor de documentos: [`apps/web/src/components/word-editor.tsx`](apps/web/src/components/word-editor.tsx)
-- Controles base: [`apps/web/src/components/ui/button.tsx`](apps/web/src/components/ui/button.tsx), [`apps/web/src/components/ui/input.tsx`](apps/web/src/components/ui/input.tsx)
+- Controles base: [`apps/web/src/components/ui/button.tsx`](apps/web/src/components/ui/button.tsx)
 - Marca: [`apps/web/public/logo.svg`](apps/web/public/logo.svg)

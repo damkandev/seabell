@@ -34,12 +34,3 @@ export async function importLocalPdf(file: File): Promise<ImportedPdf> {
     lastModified: file.lastModified,
   };
 }
-
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-
-  const units = ["KB", "MB", "GB", "TB"];
-  const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length);
-  const value = bytes / 1024 ** unit;
-  return `${value.toLocaleString("es-CL", { maximumFractionDigits: 1 })} ${units[unit - 1]}`;
-}

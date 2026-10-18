@@ -5,7 +5,7 @@
 Este proyecto usa Next.js, TypeScript y Tailwind CSS. Debe mantenerse ultra liviano,
 rápido y con el menor JavaScript posible en el cliente.
 
-La estructura usa un monorepo pnpm: `apps/web/` contiene la aplicación Next.js y `apps/api/` el backend independiente cuando exista. Los comandos de desarrollo y verificación se ejecutan desde la raíz.
+La estructura usa un monorepo pnpm: `apps/web/` contiene la aplicación Next.js y `apps/desktop/` el empaquetado Tauri de escritorio. Los comandos de desarrollo y verificación se ejecutan desde la raíz.
 
 ## Gestión del trabajo
 
