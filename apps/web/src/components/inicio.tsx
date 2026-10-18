@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useKeys } from "@/lib/utils";
 import type { WordDocument } from "@/lib/word-document";
 import { Icon } from "./icon";
 
@@ -37,6 +38,7 @@ const row = "grid h-11 grid-cols-[minmax(0,2.4fr)_minmax(0,1.4fr)_70px_80px_110p
 const act = "card flex h-14 cursor-pointer items-center gap-3 px-4 text-sm [&_svg]:size-[18px] [&_svg]:text-ink-2 [&_kbd]:ml-auto disabled:cursor-wait disabled:opacity-60";
 
 export function Inicio(props: InicioProps) {
+  const keys = useKeys();
   const { expedientes, escritos, recents, notes, docCount, busy, error } = props;
   const [dropping, setDropping] = useState(false);
 
@@ -47,7 +49,7 @@ export function Inicio(props: InicioProps) {
         <div className="px-2.5 pt-1 pb-2.5">
           <button type="button" onClick={props.onSearch} className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-[3px] bg-paper px-2.5 text-ink-3 shadow-[inset_0_0_0_1px_var(--line-2)]">
             <Icon name="search" className="size-3.5" />
-            <span className="flex-1 text-left">Buscar en todo</span><kbd>⌘K</kbd>
+            <span className="flex-1 text-left">Buscar en todo</span><kbd>{keys.mod("K")}</kbd>
           </button>
         </div>
         <div className="flex flex-col gap-px px-2.5">
@@ -101,10 +103,10 @@ export function Inicio(props: InicioProps) {
               <h1 id="h-inicio" className="m-0 mb-2 font-serif text-[32px] leading-none tracking-[-0.03em]">Inicio</h1>
               <div className="grid grid-cols-3 gap-2 max-[900px]:grid-cols-1">
                 <button type="button" className={`${act} !bg-ink !text-surface !shadow-[inset_0_-2px_0_rgb(0_0_0/35%)] hover:!bg-[#2b2f35] [&_kbd]:!text-surface/70 [&_svg]:!text-surface/70`} onClick={props.onOpenPdf} disabled={busy}>
-                  <Icon name="pdf" />{busy ? "Abriendo…" : "Abrir PDF"}<kbd>⌘O</kbd>
+                  <Icon name="pdf" />{busy ? "Abriendo…" : "Abrir PDF"}<kbd>{keys.mod("O")}</kbd>
                 </button>
-                <button type="button" className={act} onClick={props.onNewExpediente}><Icon name="addFolder" />Nuevo expediente<kbd>⌘N</kbd></button>
-                <button type="button" className={act} onClick={props.onImportAbn} disabled={busy}><Icon name="import" />Importar .abn<kbd>⇧⌘O</kbd></button>
+                <button type="button" className={act} onClick={props.onNewExpediente}><Icon name="addFolder" />Nuevo expediente<kbd>{keys.mod("N")}</kbd></button>
+                <button type="button" className={act} onClick={props.onImportAbn} disabled={busy}><Icon name="import" />Importar .abn<kbd>{keys.shiftMod("O")}</kbd></button>
               </div>
               <button
                 type="button"

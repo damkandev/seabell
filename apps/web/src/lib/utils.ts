@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from "clsx"
+import { useSyncExternalStore } from "react"
 import { flushSync } from "react-dom"
 import { twMerge } from "tailwind-merge"
 
@@ -40,4 +41,14 @@ export function createLocalId(): string {
 export function withViewTransition(update: () => void): void {
   if (!("startViewTransition" in document) || matchMedia("(prefers-reduced-motion: reduce)").matches) return update()
   document.startViewTransition(() => flushSync(update))
+}
+
+const noSubscribe = () => () => {}
+
+/** Etiquetas de atajos: ⌘/⇧/⌥ en macOS, Ctrl/Shift/Alt en el resto. El HTML estático asume macOS. */
+export function useKeys() {
+  const mac = useSyncExternalStore(noSubscribe, () => /Mac|iPhone|iPad/.test(navigator.platform), () => true)
+  return mac
+    ? { mod: (key: string) => `⌘${key}`, shiftMod: (key: string) => `⇧⌘${key}`, alt: "⌥" }
+    : { mod: (key: string) => `Ctrl+${key}`, shiftMod: (key: string) => `Ctrl+Shift+${key}`, alt: "Alt" }
 }

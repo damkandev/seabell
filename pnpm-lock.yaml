@@ -50,6 +50,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.7.0
         version: 1.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@tauri-apps/api':
+        specifier: ^2.12.4
+        version: 2.12.4
       '@tauri-apps/plugin-process':
         specifier: ^2.4.0
         version: 2.4.0

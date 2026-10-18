@@ -7,7 +7,7 @@ import { allPanes, insertPane, MAX_PANES, movePane, newPane, openIn, resizePair,
 import type { ImportedPdf } from "@/lib/pdf-import";
 import { loadPdfJs } from "@/lib/pdfjs";
 import { PdfSearchIndex, type PdfSearchResult } from "@/lib/pdf-search";
-import { createLocalId, withViewTransition } from "@/lib/utils";
+import { createLocalId, useKeys, withViewTransition } from "@/lib/utils";
 import { Icon } from "./icon";
 import { ConfirmDialog } from "./new-expediente-dialog";
 import { PdfViewer, type PanelTab, type PdfReveal, type PdfViewState } from "./pdf-viewer";
@@ -47,6 +47,7 @@ type WorkspaceProps = {
 };
 
 export function Workspace({ state, documents, viewStates, highlightColor, openDoc, onPatch, onViewState, onAddPdfs, onDropFiles, onExport, onHome, onRemoveDocument, onDelete }: WorkspaceProps) {
+  const keys = useKeys();
   const docNodes = pdfNodes(state.tree).filter((node) => documents.has(node.documentId));
   const docName = (doc: string) => displayName(docNodes.find((node) => node.documentId === doc)?.name ?? documents.get(doc)?.name ?? "Documento");
 
@@ -195,7 +196,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
             {isOpen && !isFocused && <span aria-hidden="true" className="size-1.5 flex-none rounded-full bg-ink-3" />}
             <span className="font-mono text-[11px] text-ink-3 group-hover:invisible">{viewStates[doc]?.pageCount ?? ""}</span>
           </button>
-          <button type="button" className="ib absolute top-[5px] right-7 !h-6 !min-w-6 !px-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Abrir ${displayName(node.name)} a la derecha`} title="Abrir a la derecha (⌥ clic)" onClick={() => open(doc, true)}>
+          <button type="button" className="ib absolute top-[5px] right-7 !h-6 !min-w-6 !px-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Abrir ${displayName(node.name)} a la derecha`} title={`Abrir a la derecha (${keys.alt} clic)`} onClick={() => open(doc, true)}>
             <Icon name="openRight" />
           </button>
           <button type="button" className="ib absolute top-[5px] right-1 !h-6 !min-w-6 !px-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Quitar ${displayName(node.name)} del expediente`} title="Quitar del expediente" onClick={() => setRemoving({ node: node.id, doc, name: displayName(node.name) })}>
@@ -313,7 +314,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
             />
             {query ? (
               <button type="button" className="ib !h-5 !min-w-5 !p-0" aria-label="Limpiar búsqueda" onClick={() => setQuery("")}><Icon name="close" className="!size-3" /></button>
-            ) : <kbd>⌘F</kbd>}
+            ) : <kbd>{keys.mod("F")}</kbd>}
           </label>
           <button type="button" className="ib ml-auto" aria-label={panelOpen ? "Ocultar panel" : "Mostrar panel"} aria-pressed={panelOpen} onClick={() => setPanelOpen(!panelOpen)}><Icon name="panel" /></button>
         </header>
@@ -366,7 +367,7 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
                         >
                           <h2 className="m-0 min-w-0 flex-1 truncate font-serif text-sm">{docName(pane.doc)}</h2>
                           <span className="px-1.5 font-mono text-[11px] text-ink-3">{view?.currentPage ?? 1} / {view?.pageCount ?? "…"}</span>
-                          <button type="button" className="ib" aria-label="Dividir a la derecha" title="Dividir a la derecha (⌘\) · ⌥ clic: abajo" onClick={(event) => commit(openSide(pane.doc, pane.key, event.altKey ? "bottom" : "right"))}><Icon name="split" /></button>
+                          <button type="button" className="ib" aria-label="Dividir a la derecha" title={`Dividir a la derecha (${keys.mod("\\")}) · ${keys.alt} clic: abajo`} onClick={(event) => commit(openSide(pane.doc, pane.key, event.altKey ? "bottom" : "right"))}><Icon name="split" /></button>
                           {panes.length > 1 && <button type="button" className="ib" aria-label="Cerrar panel" title="Cerrar panel" onClick={() => closePane(pane.key)}><Icon name="close" /></button>}
                         </div>
                         <div className="relative min-h-0 flex-1">
@@ -462,8 +463,9 @@ export function Workspace({ state, documents, viewStates, highlightColor, openDo
 }
 
 function SearchHit({ hit, onOpen }: { hit: PdfSearchResult; onOpen: (side: boolean) => void }) {
+  const keys = useKeys();
   return (
-    <button type="button" title="Abrir (⌥ clic: a la derecha)" onClick={(event) => onOpen(event.altKey)} className="block w-full cursor-pointer rounded-[3px] px-2.5 py-2 text-left font-serif text-[13px] leading-normal text-[#2a2d31] transition-colors duration-75 hover:bg-surface-3 focus-visible:bg-surface-3">
+    <button type="button" title={`Abrir (${keys.alt} clic: a la derecha)`} onClick={(event) => onOpen(event.altKey)} className="block w-full cursor-pointer rounded-[3px] px-2.5 py-2 text-left font-serif text-[13px] leading-normal text-[#2a2d31] transition-colors duration-75 hover:bg-surface-3 focus-visible:bg-surface-3">
       <span>{hit.before} </span>
       <mark className="bg-[#e9e5ff] text-inherit shadow-[inset_0_-2px_0_#5b4bd6]">{hit.match}</mark>
       <span> {hit.after}</span>

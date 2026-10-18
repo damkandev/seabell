@@ -141,6 +141,26 @@ export function SeabellApp() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // PDFs que el sistema abre con Seabell (doble clic, "Abrir con", otra instancia). Solo dentro de Tauri.
+  useEffect(() => {
+    if (!hydrated || !("__TAURI_INTERNALS__" in window)) return;
+    const take = async () => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const opened = await invoke<[string, number][]>("opened_pdfs");
+      const files = await Promise.all(opened.map(async ([path, lastModified]) => new File(
+        [await invoke<ArrayBuffer>("read_opened_pdf", { path })],
+        path.split(/[\\/]/).pop()!,
+        { type: "application/pdf", lastModified },
+      )));
+      await importPdfs(files, null, null);
+    };
+    const onOpened = () => void take().catch(() => setError("No se pudo abrir el PDF."));
+    onOpened();
+    window.addEventListener("seabell:opened", onOpened);
+    return () => window.removeEventListener("seabell:opened", onOpened);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- importPdfs solo usa setters estables.
+  }, [hydrated]);
+
   const openExpediente = (id: string, openDoc?: string) => setScreen({ kind: "expediente", id, openDoc, nonce: ++openCount });
   const patchExpediente = (id: string, patch: Partial<ExpedienteState>) => setExpedientes((prev) => {
     const state = prev.get(id);

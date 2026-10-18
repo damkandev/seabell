@@ -9,7 +9,7 @@ export type PaletteItem = { id: string; label: string; hint: string; icon: IconN
 
 /**
  * Búsqueda global por nombre de expediente, documento o escrito.
- * ponytail: no busca dentro del texto; la búsqueda de contenido vive en cada expediente (⌘F).
+ * ponytail: no busca dentro del texto; la búsqueda de contenido vive en cada expediente (⌘F o Ctrl+F).
  */
 export function CommandPalette({ open, items, onClose }: { open: boolean; items: PaletteItem[]; onClose: () => void }) {
   const ref = useModal(open);
