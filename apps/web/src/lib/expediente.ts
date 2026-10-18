@@ -13,15 +13,6 @@ export type ExpedienteState = {
   layout?: PaneLayout;
 };
 
-export const EXPEDIENTE_COLORS: Record<ExpedienteColor, { dot: string }> = {
-  blue: { dot: "bg-blue-500" },
-  green: { dot: "bg-green-500" },
-  orange: { dot: "bg-orange-500" },
-  purple: { dot: "bg-purple-500" },
-  rose: { dot: "bg-rose-500" },
-  teal: { dot: "bg-teal-500" },
-};
-
 export const EXPEDIENTE_COLOR_LIST: ExpedienteColor[] = [
   "blue",
   "green",

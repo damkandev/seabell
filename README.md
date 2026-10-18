@@ -58,8 +58,6 @@ Las apps instaladas revisan al abrir el `latest.json` del último release y ofre
 
 - `apps/web/`: frontend Next.js compilado como export estático (`output: "export"`), sin rutas de servidor.
 - `apps/desktop/`: proyecto Tauri 2 que empaqueta `apps/web/out` como aplicación de escritorio.
-- `apps/api/`: backend Hono heredado de la versión web; la app de escritorio no lo usa.
-- `scripts/legacy/`: utilitarios históricos de desarrollo, fuera del runtime.
 - `package.json` y `pnpm-workspace.yaml`: comandos y configuración del monorepo.
 
 La lectura y edición de PDFs usan APIs del navegador y viven en componentes cliente que corren dentro del webview de Tauri.

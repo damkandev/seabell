@@ -202,9 +202,6 @@ export function documentMetadataToFile(metadata: WorkspaceDocumentMetadata, blob
   return new File([blob], metadata.name, { type: metadata.type || blob.type, lastModified: metadata.lastModified });
 }
 
-/** Alias descriptivo para consumidores que ya tienen metadata y Blob separados. */
-export const fileFromDocumentMetadata = documentMetadataToFile;
-
 export function saveWorkspace<T extends SerializableWorkspace>(
   workspaceKey: string,
   workspace: T,
